@@ -205,11 +205,13 @@ export default function LiquidLab() {
             <label>
               Stock
               <select value={stock} onChange={(e) => setStock(e.target.value)}>
-                {Object.values(stocks).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
+                {Object.values(stocks)
+                  .filter((s) => ["water", "salt"].includes(s.id))
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
               </select>
             </label>
             <button

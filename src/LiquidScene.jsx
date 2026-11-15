@@ -93,6 +93,14 @@ export default function LiquidScene({ state, selected, onSelect, onMove }) {
             glass,
             1.42,
           );
+        if ((v.solids?.AgCl || 0) > 0) {
+          add(
+            group,
+            new THREE.CylinderGeometry(bottom * 0.8, bottom * 0.8, 0.06, 32),
+            new THREE.MeshStandardMaterial({ color: "#f4f2e8", roughness: 1 }),
+            0.09,
+          );
+        }
         const fraction = v.volumeMl / def.capacityMl;
         if (fraction > 0) {
           const liquidHeight = Math.max(0.015, height * 0.8 * fraction);

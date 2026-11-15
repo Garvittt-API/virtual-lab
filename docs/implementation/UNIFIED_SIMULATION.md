@@ -1,0 +1,23 @@
+# Guided vessel simulation: partial unification
+
+This increment unifies the new **Guided laboratory** workflows, not the entire application. The older oxygen, neutralization, liquid exploration and calculation-only views retain their existing independent session state and saved data; they have not been migrated. There is no single global authoritative state across all screens.
+
+## Vessel state and command boundary
+
+The `core.workspace` in `src/lab/guided.js` is the authority for the guided view. It uses `src/lab/engine.js` for equipment position, connections, liquid volume in mL, dissolved amounts in mol (`solutes`), and settled AgCl in mol (`solids`). The same workspace is passed to `LiquidScene`; its rendering is derived from volume and AgCl presence, not an independent scientific inventory. Levels and white solid marker are qualitative; glass geometry is not calibrated. The scene is not a fluid or physical pouring simulation.
+
+Stock additions use fixed 0.1 M HCl, NaOH, AgNO₃ or NaCl and water. Transfers remove proportional dissolved quantities and equal liquid volume from the source, then add them to the destination. Settled AgCl is intentionally left behind when transferring liquid. Stock solute identity and hazard text are in `src/lab/registry.js`. Water solvent is tracked as liquid volume, not total water moles; water formed by neutralization is separately tracked in `solutes.H2O`. Product water does not increase modeled volume. Therefore the tracked inventory is sufficient for the supported solute stoichiometry but **is not a complete mass balance of the solvent or a volume-conserving physical reaction model**.
+
+A reaction command requires a nonempty mixed vessel and positive amounts of every reactant. It calls the existing validated stoichiometry engine on the selected vessel's dissolved inventory. It atomically replaces dissolved quantities, adds AgCl to settled solids when appropriate, and logs extent, limiting species, consumed and produced amounts. Gas reactions are rejected in this vessel model. Neutralization assumes ideal complete reaction of a strong acid and base; no pH or heat is computed here. Silver precipitation assumes complete conversion, ignores Ksp, activities, competing reactions and complexation, and cannot predict whether arbitrary real concentrations form precipitate. Dilution assumes additive volumes and instant mixing. Temperature, pressure, fluid dynamics, chemical equilibrium and uncertainty are not modeled. No independent scientific review has been performed.
+
+## Guided manifests and commands
+
+`guidedManifests` contains three hardcoded declarative step lists: neutralization, precipitation and dilution. Each `next` executes the next listed add, transfer, mix, react or measurement against the workspace; the command handler returns `{ok,state,error}` and failures leave the supplied state unchanged. The steps use **fixed quantities**; users position apparatus and initiate each step, but cannot choose arbitrary measured quantities within the guided run. Measurements are computed from vessel inventory. Observations, movement, logical connections, reset, undo and redo also pass through `dispatch`. Other requested step types, assessment, arbitrary actions, heat/cool and a general manifest/authoring framework are not implemented. Existing calculation-only `simulation/runner.js` is still separate.
+
+## Undo and persistence
+
+The version-1 session contains `core` (workspace and experiment progress/notes) plus up to 50 past/future core snapshots. Undo and redo restore exact snapshots, including chemical contents and step progress; undo/redo themselves are not appended to the restored event log. The UI stores the session under `materia-guided-v1` in localStorage. `validateSession` validates version, workspace quantities, equipment types, progress and each history snapshot before restore; invalid data falls back to a fresh session. This is local device storage, not authentication, secure multi-user isolation, durable backup or tamper-proof records. Switching guided experiments replaces the current guided session after confirmation. Existing notebooks use their original storage and remain separate.
+
+## Remaining work and verification
+
+User-selected measurements, reusable apparatus placement/compatibility checks, explicit completion criteria and assessments, flexible scene creation, temperature/gas state and migration of existing experiments remain open. Type checking covers engine modules only. All visual, drag, touch, WebGL, camera and localStorage behavior requires local manual verification; no browser was launched for this increment. Digital exercises are not instructions for real laboratory work.

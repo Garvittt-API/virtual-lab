@@ -1,5 +1,6 @@
+import { react, reactions } from "../simulation/reactions.js";
 import { equipment, stocks } from "./registry.js";
-/** @typedef {{id:string, kind:string, position:number[], volumeMl:number, solutes:Record<string,number>}} Vessel */
+/** @typedef {{id:string, kind:string, position:number[], volumeMl:number, solutes:Record<string,number>, solids?:Record<string,number>, mixed?:boolean}} Vessel */
 /** @typedef {{objects:Record<string,Vessel>, connections:Array<{a:string,ap:string,b:string,bp:string}>, events:string[]}} LabState */
 /** @param {string} id @param {string} kind @param {number[]} position @returns {Vessel} */
 export function createObject(id, kind, position) {
@@ -70,8 +71,22 @@ export function validateWorkspace(state) {
       typeof v.solutes !== "object" ||
       Array.isArray(v.solutes) ||
       Object.entries(v.solutes).some(
-        ([name, n]) => name !== "NaCl" || !Number.isFinite(n) || n < 0,
+        ([name, n]) =>
+          !["NaCl", "HCl", "NaOH", "AgNO3", "NaNO3", "H2O"].includes(name) ||
+          !Number.isFinite(n) ||
+          n < 0,
       ) ||
+      (v.solids !== undefined &&
+        (!v.solids ||
+          typeof v.solids !== "object" ||
+          Array.isArray(v.solids) ||
+          Object.entries(v.solids).some(
+            ([name, n]) => name !== "AgCl" || !Number.isFinite(n) || n < 0,
+          ))) ||
+      (v.solids &&
+        Object.values(v.solids).some((n) => n > 0) &&
+        !definition(v).operations.includes("receive")) ||
+      (v.mixed !== undefined && typeof v.mixed !== "boolean") ||
       (v.volumeMl === 0 && Object.values(v.solutes).some((n) => n > 0))
     )
       throw new Error("Invalid vessel contents");
@@ -120,6 +135,7 @@ export function execute(state, command) {
     if (v.volumeMl + command.volumeMl > def.capacityMl)
       throw new Error("Capacity exceeded");
     v.volumeMl += command.volumeMl;
+    v.mixed = false;
     if (stock.solute)
       v.solutes[stock.solute] =
         (v.solutes[stock.solute] || 0) +
@@ -149,8 +165,53 @@ export function execute(state, command) {
     }
     from.volumeMl -= amount;
     to.volumeMl += amount;
+    to.mixed = false;
     if (from.volumeMl === 0) from.solutes = {};
     next.events.push(`Transferred ${amount} mL from ${from.id} to ${to.id}.`);
+  } else if (command.type === "mix") {
+    const v = object(next, command.id);
+    if (!definition(v).operations.includes("receive") || v.volumeMl <= 0)
+      throw new Error("A nonempty vessel is required");
+    v.mixed = true;
+    next.events.push(
+      `Mixed vessel ${v.id}; model assumes instantaneous homogeneity.`,
+    );
+  } else if (command.type === "react") {
+    const v = object(next, command.id);
+    if (!v.mixed || v.volumeMl <= 0)
+      throw new Error("Mix a nonempty vessel first");
+    if (!["neutralization", "precipitation"].includes(command.reactionId))
+      throw new Error("Unsupported vessel reaction");
+    const reaction = reactions[command.reactionId];
+    if (reaction.reactants.some((t) => !(v.solutes[t.species] > 0)))
+      throw new Error("Both dissolved reactants are required");
+    const result = react(reaction, v.solutes);
+    const dissolved = { ...result.inventory };
+    if (result.produced.AgCl !== undefined) {
+      v.solids = {
+        ...v.solids,
+        AgCl: (v.solids?.AgCl || 0) + result.produced.AgCl,
+      };
+      delete dissolved.AgCl;
+    }
+    v.solutes = dissolved;
+    const consumed = Object.fromEntries(
+      reaction.reactants.map((t) => [t.species, t.coefficient * result.extent]),
+    );
+    v.mixed = false;
+    next.events.push(
+      `Reaction ${reaction.id} in ${v.id}: extent ${result.extent} mol; limiting ${result.limiting.join(", ")}; consumed ${JSON.stringify(consumed)}; produced ${JSON.stringify(result.produced)}.`,
+    );
+  } else if (command.type === "observe") {
+    if (
+      typeof command.note !== "string" ||
+      !command.note.trim() ||
+      command.note.length > 2000
+    )
+      throw new Error(
+        "Observation must be nonempty and at most 2000 characters",
+      );
+    next.events.push(`Observation: ${command.note.trim()}`);
   } else if (command.type === "connect") {
     const { a, ap, b, bp } = command;
     object(next, a);

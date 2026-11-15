@@ -37,3 +37,7 @@ Select **Liquid workspace** in the sidebar to explore a small reusable liquid-st
 ## Reaction calculation exercises
 
 Select **Reaction exercises** in the sidebar for fixed-quantity, manifest-driven neutralization, precipitation, dilution and oxygen calculations. These are calculation-only exercises; they do not control the 3D scenes, and their notes are in memory only. The existing oxygen and neutralization screens use shared stoichiometry but are not yet migrated to the new runner. See [reaction engine assumptions](docs/implementation/REACTION_ENGINE.md). Manually verify all screens locally; no browser or visual verification was performed for this increment.
+
+## Guided laboratory (partial vessel-state integration)
+
+Choose **Guided laboratory** in the sidebar to run fixed-step neutralization, ideal AgCl precipitation or NaCl dilution. Each step modifies the same simulated vessel inventory used by the scene; observations and up to 50 undo/redo snapshots are stored locally. This is not yet a unified state for the older activities. No pH, real fluid flow, thermal behavior or solubility equilibrium is modeled. Review [state and assumptions](docs/implementation/UNIFIED_SIMULATION.md), and manually check the interface and scene locally; no visual verification was performed.
