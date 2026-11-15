@@ -1,27 +1,10 @@
 import React, { useState, lazy, Suspense } from "react";
-import {
-  createFreeSession,
-  validateFreeSession,
-  dispatchFree,
-  exportFreeNotebook,
-} from "./lab/free";
-import { appendNotebook } from "./lab/notebook";
+import { exportNotebook } from "./lab/notebook";
 import { equipment, stocks } from "./lab/registry";
 import { concentration } from "./lab/engine";
 const LiquidScene = lazy(() => import("./LiquidScene"));
-function read() {
-  try {
-    const value = JSON.parse(localStorage.getItem("materia-free-v1"));
-    validateFreeSession(value);
-    return value;
-  } catch {
-    return createFreeSession(new Date().toISOString());
-  }
-}
-export default function FreeLab() {
-  const [session, setSession] = useState(read),
-    [selected, setSelected] = useState(""),
-    [error, setError] = useState(""),
+export default function FreeLab({ session, run }) {
+  const [selected, setSelected] = useState(""),
     [kind, setKind] = useState("beaker"),
     [id, setId] = useState("v1"),
     [x, setX] = useState("0"),
@@ -31,48 +14,11 @@ export default function FreeLab() {
     [amount, setAmount] = useState("10"),
     [unit, setUnit] = useState("mL"),
     [reaction, setReaction] = useState("neutralization"),
-    [note, setNote] = useState(""),
-    [notebookSession] = useState(() => crypto.randomUUID());
-  const workspace = session.workspace,
+    [note, setNote] = useState("");
+  const workspace = session.core.workspace,
     items = Object.values(workspace.objects),
     item = workspace.objects[selected] || items[0],
     active = item?.id || "";
-  function put(s) {
-    setSession(s);
-    localStorage.setItem("materia-free-v1", JSON.stringify(s));
-  }
-  function run(action) {
-    const r = dispatchFree(session, action);
-    if (!r.ok) {
-      setError(r.error);
-      return false;
-    }
-    put(r.state);
-    setError("");
-    try {
-      const text =
-        action.type === "note"
-          ? action.text.trim()
-          : ["undo", "redo", "reset"].includes(action.type)
-            ? `Simulation ${action.type}`
-            : r.state.workspace.events.at(-1);
-      if (text)
-        appendNotebook(localStorage, {
-          id: crypto.randomUUID(),
-          sessionId: notebookSession,
-          experiment: "Free exploration",
-          at: new Date().toISOString(),
-          kind: action.type === "note" ? "observation" : "event",
-          text,
-        });
-    } catch {
-      setError(
-        "Action saved, but shared notebook could not be written. Existing notebook data was preserved.",
-      );
-    }
-
-    return true;
-  }
   function move(objectId, position) {
     run({ type: "move", id: objectId, position });
   }
@@ -87,7 +33,19 @@ export default function FreeLab() {
   }
   function download() {
     const url = URL.createObjectURL(
-      new Blob([exportFreeNotebook(session)], { type: "text/plain" }),
+      new Blob(
+        [
+          exportNotebook(session.notebook, "text"),
+          "\n\nCurrent equipment:\n",
+          ...items.map(
+            (v) =>
+              `- ${v.id}: ${v.kind}, ${v.volumeMl} mL, dissolved ${JSON.stringify(v.solutes)}, solids ${JSON.stringify(v.solids || {})}\n`,
+          ),
+        ],
+        {
+          type: "text/plain",
+        },
+      ),
     );
     const a = document.createElement("a");
     a.href = url;
@@ -305,6 +263,15 @@ export default function FreeLab() {
                   Volume: {item.volumeMl.toFixed(2)} /{" "}
                   {equipment[item.kind].capacityMl} mL
                 </p>
+                <button
+                  className="outline"
+                  disabled={
+                    !equipment[item.kind].operations.includes("receive")
+                  }
+                  onClick={() => run({ type: "measure-volume", id: active })}
+                >
+                  Record volume
+                </button>
                 {Object.entries(item.solutes).map(([name, n]) => (
                   <div className="result-row" key={name}>
                     <span>
@@ -434,11 +401,7 @@ export default function FreeLab() {
                 </button>
               </>
             )}
-            {error && (
-              <p role="alert" className="answer-incorrect">
-                {error}
-              </p>
-            )}
+
             <div className="safety">
               <b>Digital model only</b>
               <p>
@@ -477,9 +440,11 @@ export default function FreeLab() {
             </div>
             <h3>Observations</h3>
             <div className="event-list">
-              {session.notes.map((event, i) => (
-                <div key={i}>{event}</div>
-              ))}
+              {session.notebook.entries
+                .filter((e) => e.kind === "observation")
+                .map((e) => (
+                  <div key={e.id}>{e.text}</div>
+                ))}
             </div>
           </div>
         </aside>

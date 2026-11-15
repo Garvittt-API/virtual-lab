@@ -38,8 +38,8 @@ import {
 const Scene = lazy(() => import("./Scene"));
 const OxygenLab = lazy(() => import("./OxygenLab"));
 const LiquidLab = lazy(() => import("./LiquidLab"));
-const GuidedLab = lazy(() => import("./GuidedLab"));
-const FreeLab = lazy(() => import("./FreeLab"));
+const SessionWorkbench = lazy(() => import("./SessionWorkbench"));
+
 const SharedNotebook = lazy(() => import("./SharedNotebook"));
 const ReactionExercises = lazy(() => import("./ReactionExercises"));
 import { neutralization } from "./chemistry";
@@ -923,11 +923,11 @@ function App() {
             </Suspense>
           ) : page === "guided" ? (
             <Suspense fallback={<div>Loading laboratory…</div>}>
-              <GuidedLab />
+              <SessionWorkbench key="guided" initialMode="guided" />
             </Suspense>
           ) : page === "free" ? (
             <Suspense fallback={<div>Loading workspace…</div>}>
-              <FreeLab />
+              <SessionWorkbench key="free" initialMode="free" />
             </Suspense>
           ) : page === "shared-notebook" ? (
             <Suspense fallback={<div>Loading notebook…</div>}>

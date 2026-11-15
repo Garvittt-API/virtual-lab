@@ -8,7 +8,7 @@
     "build": "vite build",
     "test": "node --test tests/*.test.js",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit --allowJs --checkJs --target es2022 --module nodenext --moduleResolution nodenext src/chemistry.js src/experiment.js src/oxygen.js src/lab/engine.js src/lab/registry.js src/simulation/substances.js src/simulation/reactions.js src/simulation/runner.js src/lab/guided.js src/lab/free.js src/lab/notebook.js src/lab/import-notes.js",
+    "typecheck": "tsc --noEmit --allowJs --checkJs --target es2022 --module nodenext --moduleResolution nodenext src/chemistry.js src/experiment.js src/oxygen.js src/lab/engine.js src/lab/registry.js src/simulation/substances.js src/simulation/reactions.js src/simulation/runner.js src/lab/guided.js src/lab/free.js src/lab/notebook.js src/lab/import-notes.js src/lab/session.js src/lab/session-store.js",
     "test:browser": "node tests/browser.mjs"
   },
   "dependencies": {

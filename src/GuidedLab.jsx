@@ -1,23 +1,8 @@
 import React, { useState, lazy, Suspense } from "react";
-import {
-  createSession,
-  validateSession,
-  dispatch,
-  guidedManifests,
-} from "./lab/guided";
-import { appendNotebook } from "./lab/notebook";
+import { guidedManifests } from "./lab/guided";
 import { equipment, stocks } from "./lab/registry";
 import { concentration } from "./lab/engine";
 const LiquidScene = lazy(() => import("./LiquidScene"));
-function read() {
-  try {
-    const data = JSON.parse(localStorage.getItem("materia-guided-v1"));
-    validateSession(data);
-    return data;
-  } catch {
-    return createSession("neutralization");
-  }
-}
 function GuidedStepControl({ step, workspace, run }) {
   const [command, setCommand] = useState(() => ({
     ...step.command,
@@ -121,70 +106,26 @@ function GuidedStepControl({ step, workspace, run }) {
     </div>
   );
 }
-export default function GuidedLab() {
-  const [session, setSession] = useState(read),
-    [selected, setSelected] = useState("a"),
-    [error, setError] = useState(""),
-    [note, setNote] = useState(""),
-    [notebookSession, setNotebookSession] = useState(() => crypto.randomUUID());
+export default function GuidedLab({ session, run, startExperiment }) {
+  const [selected, setSelected] = useState("a"),
+    [note, setNote] = useState("");
   const { workspace, experiment } = session.core,
     manifest = guidedManifests[experiment.id],
     step = manifest.steps[experiment.step],
-    item = workspace.objects[selected];
-  function put(s) {
-    setSession(s);
-    localStorage.setItem("materia-guided-v1", JSON.stringify(s));
-  }
-  function run(action) {
-    const result = dispatch(session, action);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setError("");
-    put(result.state);
-    try {
-      const events = result.state.core.workspace.events;
-      const text =
-        action.type === "observe"
-          ? action.note.trim()
-          : ["undo", "redo", "reset"].includes(action.type)
-            ? `Simulation ${action.type}`
-            : events.at(-1);
-      if (text)
-        appendNotebook(localStorage, {
-          id: crypto.randomUUID(),
-          sessionId: notebookSession,
-          experiment: manifest.title,
-          at: new Date().toISOString(),
-          kind: action.type === "observe" ? "observation" : "event",
-          text,
-        });
-    } catch {
-      setError(
-        "Action saved, but shared notebook could not be written. Existing notebook data was preserved.",
-      );
-    }
-    return true;
-  }
+    item = workspace.objects[selected] || Object.values(workspace.objects)[0];
   function change(e) {
-    if (
-      window.confirm(
-        "Start the selected experiment? The current guided session will be replaced.",
-      )
-    ) {
-      put(createSession(e.target.value));
+    if (window.confirm("Start a new independent guided session?")) {
+      startExperiment(e.target.value);
       setSelected("a");
-      setNotebookSession(crypto.randomUUID());
-      setError("");
     }
   }
   function move(id, position) {
     run({ type: "move", id, position });
   }
   function shift(dx, dz, rotation = 0) {
+    if (!item) return;
     const p = item.position;
-    move(selected, [
+    move(item.id, [
       Math.max(-4, Math.min(4, p[0] + dx)),
       Math.max(-2.5, Math.min(2.5, p[1] + dz)),
       p[2] + rotation,
@@ -253,14 +194,15 @@ export default function GuidedLab() {
           <div className="workspace-top">
             <span>
               <span className="live-dot" /> 3D WORKSPACE /{" "}
-              {equipment[item.kind].name} {selected}
+              {item ? equipment[item.kind].name : "Empty bench"}{" "}
+              {item?.id || ""}
             </span>
             <span>IDEAL MODEL</span>
           </div>
           <Suspense fallback={<div className="scene">Loading workspace…</div>}>
             <LiquidScene
               state={workspace}
-              selected={selected}
+              selected={item?.id || ""}
               onSelect={setSelected}
               onMove={move}
             />
@@ -339,24 +281,29 @@ export default function GuidedLab() {
                 {manifest.safety} {manifest.model}
               </p>
             </div>
-            <h3>Selected vessel {selected}</h3>
-            <p>
-              {item.volumeMl.toFixed(1)} / {equipment[item.kind].capacityMl} mL
-            </p>
-            {Object.entries(item.solutes).map(([id, n]) => (
-              <div className="result-row" key={id}>
-                <span>{id} dissolved / product</span>
-                <b>{n.toPrecision(4)} mol</b>
-              </div>
-            ))}
-            {Object.entries(item.solids || {}).map(([id, n]) => (
-              <div className="result-row" key={id}>
-                <span>{id} solid</span>
-                <b>{n.toPrecision(4)} mol</b>
-              </div>
-            ))}
-            {item.volumeMl > 0 && item.solutes.NaCl !== undefined && (
-              <p>NaCl: {concentration(item, "NaCl").toFixed(4)} M</p>
+            {item && (
+              <>
+                <h3>Selected vessel {item.id}</h3>
+                <p>
+                  {item.volumeMl.toFixed(1)} / {equipment[item.kind].capacityMl}{" "}
+                  mL
+                </p>
+                {Object.entries(item.solutes).map(([id, n]) => (
+                  <div className="result-row" key={id}>
+                    <span>{id} dissolved / product</span>
+                    <b>{n.toPrecision(4)} mol</b>
+                  </div>
+                ))}
+                {Object.entries(item.solids || {}).map(([id, n]) => (
+                  <div className="result-row" key={id}>
+                    <span>{id} solid</span>
+                    <b>{n.toPrecision(4)} mol</b>
+                  </div>
+                ))}
+                {item.volumeMl > 0 && item.solutes.NaCl !== undefined && (
+                  <p>NaCl: {concentration(item, "NaCl").toFixed(4)} M</p>
+                )}
+              </>
             )}
             <label htmlFor="guided-note">Record observation</label>
             <textarea
@@ -373,11 +320,6 @@ export default function GuidedLab() {
             >
               Save observation
             </button>
-            {error && (
-              <p role="alert" className="answer-incorrect">
-                {error}
-              </p>
-            )}
             <h3>Session history</h3>
             <div className="event-list">
               {workspace.events.slice(-12).map((event, i) => (

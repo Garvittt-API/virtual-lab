@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { SESSION_STORE_KEY, validateStore } from "./lab/session-store";
 import { importLegacyNotebook } from "./lab/import-notes";
 import {
   loadNotebook,
@@ -19,8 +20,24 @@ function read() {
     };
   }
 }
+function readSessionBooks() {
+  try {
+    const raw = localStorage.getItem(SESSION_STORE_KEY);
+    if (raw === null) return { sessions: [], error: "" };
+    const store = JSON.parse(raw);
+    validateStore(store);
+    return { sessions: store.sessions, error: "" };
+  } catch {
+    return {
+      sessions: [],
+      error:
+        "Laboratory session notebooks could not be read; stored data was not changed.",
+    };
+  }
+}
 export default function SharedNotebook() {
-  const [value, setValue] = useState(read),
+  const [sessionBooks] = useState(readSessionBooks),
+    [value, setValue] = useState(read),
     [text, setText] = useState(""),
     [editId, setEditId] = useState(""),
     [editing, setEditing] = useState("");
@@ -43,7 +60,16 @@ export default function SharedNotebook() {
   }
   function download(format) {
     const url = URL.createObjectURL(
-        new Blob([exportNotebook(value.book, format)], { type: "text/plain" }),
+        new Blob(
+          [
+            exportNotebook(value.book, format),
+            ...sessionBooks.sessions.map(
+              (s) =>
+                `\n\nSession: ${s.name} (${s.id})\n${exportNotebook(s.notebook, format)}`,
+            ),
+          ],
+          { type: "text/plain" },
+        ),
       ),
       a = document.createElement("a");
     a.href = url;
@@ -57,11 +83,31 @@ export default function SharedNotebook() {
         <h2>Shared activity notebook</h2>
       </div>
       <p>
-        Records new guided and free-mode actions on this device. Earlier
-        activity notes remain in their original screens. Simulation undo does
-        not erase these entries.
+        Shows saved guided and free session entries alongside earlier activity
+        notes. Simulation undo does not erase notebook entries.
       </p>
       {value.error && <p role="alert">{value.error}</p>}
+      {sessionBooks.error && <p role="alert">{sessionBooks.error}</p>}
+      <h3>Laboratory sessions</h3>
+      <p>
+        Open a laboratory session to edit its observations. Entries below belong
+        to their saved session.
+      </p>
+      {sessionBooks.sessions.map((s) => (
+        <div key={s.id}>
+          <h4>
+            {s.name} · {s.id}
+          </h4>
+          {s.notebook.entries.map((e) => (
+            <div className="result-row" key={e.id}>
+              <small>
+                {e.at} · {e.kind}
+              </small>
+              <span>{e.text}</span>
+            </div>
+          ))}
+        </div>
+      ))}
       {value.book && (
         <>
           <label>
