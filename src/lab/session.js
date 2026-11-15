@@ -379,7 +379,7 @@ export function dispatchLab(s, action, at, entryId) {
         } else if (action.type === "measure-gas") {
           const v = next.core.workspace.objects[action.id];
           if (!v || !equipment[v.kind].operations.includes("measure-gas")) throw new Error("Gas measurement requires a gas collection vessel");
-          text = `Measured ${Object.entries(v.gases || {}).map(([name, moles]) => `${name}: ${moles} mol`).join(", ") || "no collected gas"} in ${v.id}.`;
+          text = `Measured ${Object.entries(v.gases || {}).map(([name, moles]) => `${name}: ${moles} mol, ${(moles * oxygenReaction.molarGasVolume * 1000).toFixed(2)} mL at 0 °C and 1 atm`).join(", ") || "no collected gas"} in ${v.id}.`;
           next.core.workspace.events.push(text);
         } else {
           next.core.workspace = executeCommand(next.core.workspace, action);

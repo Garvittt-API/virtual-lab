@@ -371,6 +371,8 @@ test("oxygen is executed through a canonical session ledger with undo, redo and 
   saveStore(storage, { version: 1, activeId: s.id, sessions: [s], imported: {} });
   assert.deepEqual(loadStore(storage, at).sessions[0], s);
   s = go(s, { type: "policy", mode: "free" });
+  s = go(s, { type: "measure-gas", id: "jar" });
+  assert.ok(s.notebook.entries.some((entry) => entry.text.includes("mL at 0 °C and 1 atm")));
   s = go(s, { type: "reset" });
   assert.equal(s.mode, "free");
   assert.equal(s.core.experiment.protocol.steps, 0);
@@ -389,6 +391,7 @@ test("oxygen generates uncollected gas without a path and collects it after appa
   assert.equal(s.core.experiment.inventory.uncollectedO2Mol, generated);
   assert.equal(s.core.workspace.objects.jar.gases.O2 || 0, 0);
   assert.ok(s.core.workspace.objects.tube.gases.O2 > 0);
+  assert.match(s.core.workspace.events.at(-1), /consumed .* mol KClO₃; generated .* collected 0 mol, uncollected/);
   s = go(s, { type: "oxygen-connect" });
   assert.equal(s.core.experiment.inventory.collectedO2Mol, generated);
   assert.equal(s.core.experiment.inventory.uncollectedO2Mol, 0);

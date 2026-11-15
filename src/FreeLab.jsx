@@ -4,6 +4,12 @@ import { exportNotebook } from "./lab/notebook";
 import { equipment, stocks } from "./lab/registry";
 import { concentration } from "./lab/engine";
 const LiquidScene = lazy(() => import("./LiquidScene"));
+function nextEquipmentId(current, existing) {
+  const match = /^(.*?)(\d+)?$/.exec(current), prefix = match?.[1] || "item";
+  let n = Number(match?.[2] || 0) + 1, candidate;
+  do { candidate = `${prefix}${n++}`; } while (existing.has(candidate));
+  return candidate;
+}
 export default function FreeLab({ session, run }) {
   const [selected, setSelected] = useState(""),
     [kind, setKind] = useState("beaker"),
@@ -133,21 +139,28 @@ export default function FreeLab({ session, run }) {
                   kind,
                   position: [Number(x), Number(z), 0],
                 })
-              )
+              ) {
                 setSelected(id);
+                setId(nextEquipmentId(id, new Set(items.map((v) => v.id).concat(id))));
+                setConnectionTarget(items.find((v) => v.id !== id)?.id || "");
+              }
             }}
           >
             Place equipment
           </button>
           <p className="panel-intro">
-            Placement checks simple bench bounds and separation. Moving does not
-            enforce collisions.
+            Positions snap to 0.25 m. Placement and movement stay within the
+            bench and reject overlaps.
           </p>
           {items.map((v) => (
             <button
               key={v.id}
               className={"equipment " + (active === v.id ? "selected" : "")}
-              onClick={() => setSelected(v.id)}
+              onClick={() => {
+                setSelected(v.id);
+                if (connectionTarget === v.id || !workspace.objects[connectionTarget])
+                  setConnectionTarget(items.find((other) => other.id !== v.id)?.id || "");
+              }}
             >
               <span className="equip-icon">◌</span>
               <span>
@@ -158,6 +171,7 @@ export default function FreeLab({ session, run }) {
               </span>
             </button>
           ))}
+          {items.length === 0 && <p className="panel-intro" role="status">Start by choosing an item and placing it on the bench. Its ID advances automatically so the next item is ready to add.</p>}
           <div className="transform-controls">
             <b>Apparatus connections</b>
             <label>
@@ -172,9 +186,10 @@ export default function FreeLab({ session, run }) {
                 .map(([bp]) => <button key={`${ap}-${bp}`} onClick={() => run({ type: "connect", a: item.id, ap, b: connectionTarget, bp })}>Connect {ap} ↔ {bp}</button>))}
             {!workspace.connections.length && <small>No apparatus connected.</small>}
             {workspace.connections.map((c, i) => <div className="result-row" key={`${c.a}-${c.ap}-${i}`}>
-              <span>{c.a}:{c.ap} ↔ {c.b}:{c.bp}</span>
+              <span>{c.a}:{c.ap} ↔ {c.b}:{c.bp} · {c.connectionType || "compatible"}</span>
               <button onClick={() => run({ type: "disconnect", id: c.a, port: c.ap })}>Disconnect</button>
             </div>)}
+            {item?.kind === "condenser" && <p className="model-note" role="status"><b>Structural connection only.</b> Condensation and heat transfer are unavailable because this model has no temperature or phase-change calculation.</p>}
           </div>
           {item && (
             <>
@@ -218,7 +233,11 @@ export default function FreeLab({ session, run }) {
               <button
                 className="outline"
                 onClick={() => {
-                  if (run({ type: "remove", id: active })) setSelected("");
+                  if (run({ type: "remove", id: active })) {
+                    setSelected("");
+                    if (connectionTarget === active)
+                      setConnectionTarget(items.find((other) => other.id !== active)?.id || "");
+                  }
                 }}
               >
                 Remove selected
@@ -292,6 +311,7 @@ export default function FreeLab({ session, run }) {
                     ? `Volume: ${item.volumeMl.toFixed(2)} / ${equipment[item.kind].capacityMl} mL`
                     : "No liquid inventory"}
                 </p>
+                <p className="model-note">Supported operations: {equipment[item.kind].operations.join(", ") || "none"}.</p>
                 <button
                   className="outline"
                   disabled={
@@ -328,8 +348,9 @@ export default function FreeLab({ session, run }) {
                   </div>
                 ))}
                 {Object.entries(item.gases || {}).map(([name, n]) => n > 0 && (
-                  <div className="result-row" key={name}><span>{name}(g)</span><b>{n.toPrecision(5)} mol</b></div>
+                  <div className="result-row" key={name}><span>{name}(g) · {(n * 22.414 * 1000).toFixed(1)} mL at 0 °C, 1 atm</span><b>{n.toPrecision(5)} mol{equipment[item.kind].gasCapacityMl ? ` / ${equipment[item.kind].gasCapacityMl} mL` : ""}</b></div>
                 ))}
+                {Object.values(item.gases || {}).some((n) => n > 0) && <p className="model-note">Gas volume is derived from the fixed ideal-gas model at 0 °C and 1 atm.</p>}
                 {equipment[item.kind].operations.includes("measure-gas") && <button className="outline" onClick={() => run({ type: "measure-gas", id: active })}>Record gas inventory</button>}
                 <label>
                   Stock solution
@@ -409,7 +430,7 @@ export default function FreeLab({ session, run }) {
                 <label>
                   Transfer through (optional)
                   <select value={via} onChange={(e) => setVia(e.target.value)}>
-                    <option value="">Direct pour</option>
+                    <option value="">Direct vessel transfer</option>
                     {items.filter((v) => equipment[v.kind].model === "funnel").map((v) => <option key={v.id} value={v.id}>{equipment[v.kind].name} · {v.id}</option>)}
                   </select>
                 </label>
@@ -427,7 +448,7 @@ export default function FreeLab({ session, run }) {
                     })
                   }
                 >
-                  Transfer volume
+                  {equipment[item.kind].operations.includes("dispense") ? "Dispense measured volume" : "Transfer measured volume"}
                 </button>
                 <button
                   className="outline"

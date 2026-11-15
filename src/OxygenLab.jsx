@@ -9,6 +9,7 @@ const names = {
 };
 export default function OxygenLab({ session, run }) {
   const protocol = session.core.experiment.protocol;
+  const inventory = session.core.experiment.inventory;
   const state = {
     ...protocol,
     events: session.core.workspace.events,
@@ -227,6 +228,11 @@ export default function OxygenLab({ session, run }) {
                 </p>
               </div>
               <div className="equation">{oxygenReaction.equation}</div>
+              <p className="model-note" role="status">
+                {state.connected
+                  ? "Gas path connected: reaction vessel → delivery tube → collection vessel."
+                  : "No gas path connected. Generated oxygen will remain in the reaction vessel until you connect the apparatus."}
+              </p>
               <div className="step">
                 <span className="step-num">1</span>
                 <div>
@@ -316,7 +322,7 @@ export default function OxygenLab({ session, run }) {
               </div>
               <div className="result-row">
                 <span>O₂ uncollected</span>
-                <b>{(session.core.experiment.inventory.uncollectedO2Mol * 1000).toFixed(3)} mmol</b>
+                <b>{(inventory.uncollectedO2Mol * 1000).toFixed(3)} mmol</b>
               </div>
               <div className="result-row">
                 <span>KCl formed</span>
@@ -334,6 +340,8 @@ export default function OxygenLab({ session, run }) {
                 displacement and bubbles are illustrative, not measured. The
                 model has not been independently scientifically reviewed.
               </p>
+              {state.steps === 0 && <p className="model-note" role="status">No oxygen has been generated yet. Load the reactant and run a heating stage.</p>}
+              {inventory.collectedO2Ml >= 500 - 1e-8 && <p className="answer-incorrect" role="status">The 500 mL receiver is full. Additional generated oxygen remains uncollected.</p>}
               <p className="model-note">
                 <b>Conclusion:</b> The idealized reaction produces 1.5 moles of
                 oxygen per mole of potassium chlorate consumed.

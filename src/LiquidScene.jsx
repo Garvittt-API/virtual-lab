@@ -65,8 +65,19 @@ function createEquipment(v, glass) {
     if (model === "tube") mesh(new THREE.SphereGeometry(0.25, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), glass, 0.1);
     const fraction = v.volumeMl / Math.max(def.capacityMl, 1);
     if (fraction > 0 && def.capacityMl > 0) {
-      const amount = Object.values(v.solutes || {}).reduce((a, b) => a + b, 0);
-      const color = (v.solutes?.AgNO3 || 0) > 0 ? "#d6e7c3" : (v.solutes?.HCl || 0) > 0 ? "#e5f0dd" : (v.solutes?.NaOH || 0) > 0 ? "#d3e6df" : "#83c9ce";
+      const soluteColors = { HCl: "#dceee8", NaOH: "#cce4df", AgNO3: "#d7e4c8", NaCl: "#8fc8c5", NaNO3: "#abd3c7" };
+      const amounts = Object.entries(v.solutes || {}).filter(([name, n]) => soluteColors[name] && n > 0);
+      const amount = amounts.reduce((sum, [, n]) => sum + n, 0);
+      const tint = new THREE.Color("#83c9ce");
+      if (amount > 0) {
+        const mixture = new THREE.Color(0, 0, 0);
+        for (const [name, n] of amounts) {
+          const speciesColor = new THREE.Color(soluteColors[name]), weight = n / amount;
+          mixture.r += speciesColor.r * weight; mixture.g += speciesColor.g * weight; mixture.b += speciesColor.b * weight;
+        }
+        tint.lerp(mixture, Math.min(0.7, amount / Math.max(amount + v.volumeMl / 1000, 1e-12)));
+      }
+      const color = tint;
       const liquidHeight = Math.max(0.025, height * 0.8 * Math.min(1, fraction));
       const liquidMaterial = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.83, roughness: 0.25 });
       mesh(new THREE.CylinderGeometry(Math.max(0.08, bottom * 0.86), bottom * 0.9, liquidHeight, 32), liquidMaterial, 0.08 + liquidHeight / 2);
@@ -113,9 +124,9 @@ export default function LiquidScene({ state, selected, onSelect, onMove }) {
     const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(3, 8, 5); scene.add(light);
     const bench = new THREE.Mesh(new THREE.BoxGeometry(10, 0.2, 6), new THREE.MeshStandardMaterial({ color: "#d5e4dc" })); bench.position.y = -0.1; scene.add(bench);
     const grid = new THREE.GridHelper(10, 20, 0xb0c8bd, 0xc6d8cf); grid.position.y = 0.01; scene.add(grid);
-    const equipmentRoot = new THREE.Group(), connectionRoot = new THREE.Group(), selection = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.74, 32), new THREE.MeshBasicMaterial({ color: "#319a70", side: THREE.DoubleSide }));
-    selection.rotation.x = -Math.PI / 2; scene.add(equipmentRoot, connectionRoot, selection);
-    runtime.current = { scene, camera, renderer, controls, equipmentRoot, connectionRoot, selection };
+    const equipmentRoot = new THREE.Group(), connectionRoot = new THREE.Group(), flowRoot = new THREE.Group(), selection = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.74, 32), new THREE.MeshBasicMaterial({ color: "#319a70", side: THREE.DoubleSide }));
+    selection.rotation.x = -Math.PI / 2; scene.add(equipmentRoot, connectionRoot, flowRoot, selection);
+    runtime.current = { scene, camera, renderer, controls, equipmentRoot, connectionRoot, flowRoot, selection, flows: [], eventCursor: null };
     const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3(), offset = new THREE.Vector3();
     let dragged = null, moved = false;
     const coords = (e) => { const r = renderer.domElement.getBoundingClientRect(); pointer.set(((e.clientX-r.left)/r.width)*2-1, (-(e.clientY-r.top)/r.height)*2+1); ray.setFromCamera(pointer,camera); };
@@ -125,15 +136,38 @@ export default function LiquidScene({ state, selected, onSelect, onMove }) {
     const lost = (e) => { e.preventDefault(); node.dataset.context = "WebGL context lost. Attempting to restore the laboratory view…"; };
     const restored = () => { delete node.dataset.context; };
     renderer.domElement.addEventListener("pointerdown",down); renderer.domElement.addEventListener("pointermove",move); renderer.domElement.addEventListener("pointerup",up); renderer.domElement.addEventListener("pointercancel",up); renderer.domElement.addEventListener("webglcontextlost",lost,false); renderer.domElement.addEventListener("webglcontextrestored",restored,false);
-    const resize=()=>{const w=node.clientWidth,h=node.clientHeight;if(w&&h){renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}}; const ro=new ResizeObserver(resize); ro.observe(node); resize(); let frame; const animate=()=>{frame=requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}; animate();
-    return ()=>{cancelAnimationFrame(frame);ro.disconnect();controls.dispose();renderer.domElement.removeEventListener("pointerdown",down);renderer.domElement.removeEventListener("pointermove",move);renderer.domElement.removeEventListener("pointerup",up);renderer.domElement.removeEventListener("pointercancel",up);renderer.domElement.removeEventListener("webglcontextlost",lost);renderer.domElement.removeEventListener("webglcontextrestored",restored);clearGroup(equipmentRoot);clearGroup(connectionRoot);scene.traverse((o)=>{o.geometry?.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach((m)=>m.dispose());});renderer.dispose();renderer.domElement.remove();runtime.current=null;};
+    const resize=()=>{const w=node.clientWidth,h=node.clientHeight;if(w&&h){renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}}; const ro=new ResizeObserver(resize); ro.observe(node); resize(); let frame; const animate=()=>{frame=requestAnimationFrame(animate);const now=performance.now();for(let i=runtime.current.flows.length-1;i>=0;i--){const flow=runtime.current.flows[i],t=(now-flow.started)/flow.duration;if(t>=1){flowRoot.remove(flow.mesh);flow.mesh.geometry.dispose();flow.mesh.material.dispose();runtime.current.flows.splice(i,1);}else flow.mesh.position.copy(flow.curve.getPoint(Math.max(0,t)));}controls.update();renderer.render(scene,camera);}; animate();
+    return ()=>{cancelAnimationFrame(frame);ro.disconnect();controls.dispose();renderer.domElement.removeEventListener("pointerdown",down);renderer.domElement.removeEventListener("pointermove",move);renderer.domElement.removeEventListener("pointerup",up);renderer.domElement.removeEventListener("pointercancel",up);renderer.domElement.removeEventListener("webglcontextlost",lost);renderer.domElement.removeEventListener("webglcontextrestored",restored);clearGroup(equipmentRoot);clearGroup(connectionRoot);clearGroup(flowRoot);scene.traverse((o)=>{o.geometry?.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach((m)=>m.dispose());});renderer.dispose();renderer.domElement.remove();runtime.current=null;};
   }, []);
   useEffect(() => {
     const rt=runtime.current; if(!rt) return;
+    const addFlow = (from, to, color) => {
+      const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(from[0], 0.65, from[1]), new THREE.Vector3((from[0] + to[0]) / 2, 1.55, (from[1] + to[1]) / 2), new THREE.Vector3(to[0], 0.55, to[1])]);
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), new THREE.MeshBasicMaterial({ color }));
+      rt.flowRoot.add(mesh); rt.flows.push({ mesh, curve, started: performance.now(), duration: 850 });
+    };
+    if (rt.eventCursor === null) rt.eventCursor = state.events.length;
+    const additions = state.events.length >= rt.eventCursor ? state.events.slice(rt.eventCursor) : [];
+    rt.eventCursor = state.events.length;
+    for (const event of additions) {
+      const transfer = event.match(/^Transferred [\d.]+ mL from ([\w-]+) to ([\w-]+)\./);
+      const gasFlow = event.includes("generated ") && event.includes(" collected ") && !event.match(/collected 0(?:\.0+)? mol/);
+      const caughtGas = event.includes("Connected gas path collected ") && !event.match(/collected 0(?:\.0+)? mol/);
+      const fromId = transfer?.[1] || (gasFlow || caughtGas ? "tube" : null);
+      const toId = transfer?.[2] || (gasFlow || caughtGas ? "jar" : null);
+      const from = fromId ? state.objects[fromId]?.position : null, to = toId ? state.objects[toId]?.position : null;
+      if (from && to) addFlow(from, to, transfer ? "#59bcd0" : "#b8e9f3");
+    }
     clearGroup(rt.equipmentRoot); clearGroup(rt.connectionRoot);
     const objects={}; for(const v of Object.values(state.objects)){const g=createEquipment(v,new THREE.MeshPhysicalMaterial({color:0xd5f6f2,transparent:true,opacity:0.38,roughness:0.13,side:THREE.DoubleSide,depthWrite:false}));objects[v.id]=g;rt.equipmentRoot.add(g);}
     for(const c of state.connections){const a=objects[c.a]?.position,b=objects[c.b]?.position;if(!a||!b)continue;const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(a.x,1.6,a.z),new THREE.Vector3((a.x+b.x)/2,2.2,(a.z+b.z)/2),new THREE.Vector3(b.x,1.25,b.z)]);rt.connectionRoot.add(new THREE.Mesh(new THREE.TubeGeometry(curve,24,0.025,6),new THREE.MeshBasicMaterial({color:"#4eaa7c"})));}
-    const selectedObject=objects[selected];rt.selection.visible=!!selectedObject;if(selectedObject)rt.selection.position.set(selectedObject.position.x,0.025,selectedObject.position.z);
-  }, [state, selected]);
+  }, [state]);
+  useEffect(() => {
+    const rt = runtime.current;
+    if (!rt) return;
+    const selectedObject = rt.equipmentRoot.children.find((group) => group.userData.id === selected);
+    rt.selection.visible = !!selectedObject;
+    if (selectedObject) rt.selection.position.set(selectedObject.position.x, 0.025, selectedObject.position.z);
+  }, [selected]);
   return <div className="scene" ref={host} aria-label="3D chemistry workbench. Select and drag equipment; use movement controls for precise positioning." />;
 }

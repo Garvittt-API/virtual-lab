@@ -100,9 +100,19 @@ try {
   await page.getByRole("button", { name: "Discover" }).click();
   await page.getByRole("button", { name: "Open oxygen decomposition" }).click();
   await page.locator("canvas").waitFor();
-  await page.getByRole("button", { name: "Connect vessels" }).click();
   await page.getByRole("button", { name: "Add KClO₃" }).click();
-  for (let i = 0; i < 5; i++)
+  await page.getByRole("status").filter({ hasText: "No gas path connected" }).waitFor();
+  await page.getByRole("button", { name: "Simulate heating step" }).click();
+  let oxygenState = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
+  let activeOxygen = oxygenState.sessions.find((entry) => entry.id === oxygenState.activeId);
+  assert.ok(activeOxygen.core.workspace.objects.tube.gases.O2 > 0);
+  assert.equal(activeOxygen.core.workspace.objects.jar.gases.O2 || 0, 0);
+  await page.getByRole("button", { name: "Connect vessels" }).click();
+  oxygenState = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
+  activeOxygen = oxygenState.sessions.find((entry) => entry.id === oxygenState.activeId);
+  assert.ok(activeOxygen.core.workspace.objects.jar.gases.O2 > 0);
+  assert.equal(activeOxygen.core.workspace.objects.tube.gases.O2, 0);
+  for (let i = 0; i < 4; i++)
     await page.getByRole("button", { name: "Simulate heating step" }).click();
   await page.getByRole("button", { name: "Results", exact: true }).click();
   assert.equal(await page.locator(".reading strong").textContent(), "274.3 mL");
@@ -126,8 +136,19 @@ try {
   for (const experiment of ["precipitation", "dilution"]) {
     await page.locator("#exercise").selectOption(experiment);
     await page.locator("canvas").waitFor();
+    for (let i = 0; i < 5; i++) await page.getByRole("button", { name: /^Perform / }).click();
+    await page.getByText("Procedure complete.").waitFor();
     const current = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
-    assert.ok(current.sessions.some((entry) => entry.core.experiment?.id === experiment));
+    const completed = current.sessions.find((entry) => entry.core.experiment?.id === experiment);
+    assert.ok(completed);
+    assert.equal(completed.core.experiment.step, 5);
+    if (experiment === "precipitation") {
+      assert.ok(Math.abs(completed.core.workspace.objects.a.solids.AgCl - 0.001) < 1e-12);
+      assert.ok(Math.abs(completed.core.workspace.objects.a.solutes.NaNO3 - 0.001) < 1e-12);
+    } else {
+      assert.equal(completed.core.workspace.objects.b.volumeMl, 100);
+      assert.ok(Math.abs(completed.core.workspace.objects.b.solutes.NaCl - 0.001) < 1e-12);
+    }
   }
 
   await page.getByRole("button", { name: "Free exploration", exact: true }).click();
@@ -142,11 +163,13 @@ try {
   let customSession = custom.sessions.find((entry) => entry.id === custom.activeId);
   assert.equal(customSession.mode, "free");
   assert.equal(Object.keys(customSession.core.workspace.objects).length, 0);
+  await page.getByRole("status").filter({ hasText: "Start by choosing an item" }).waitFor();
   const equipmentPicker = page.locator(".equipment-panel select").first();
   await equipmentPicker.selectOption("stand");
   await page.getByLabel("Equipment ID").fill("s1");
   await page.getByLabel("Bench X").fill("-2");
   await page.getByRole("button", { name: "Place equipment" }).click();
+  assert.equal(await page.getByLabel("Equipment ID").inputValue(), "s2");
   await equipmentPicker.selectOption("clamp");
   await page.getByLabel("Equipment ID").fill("c1");
   await page.getByLabel("Bench X").fill("2");
@@ -160,6 +183,7 @@ try {
   await page.getByLabel("Bench X").fill("1");
   await page.getByRole("button", { name: "Place equipment" }).click();
   await page.getByRole("button", { name: /Clamp.*c1/ }).click();
+  assert.equal(await page.getByRole("combobox", { name: "Connect selected ports to" }).inputValue(), "s1");
   await page.getByText("Position & rotation").waitFor();
   const dragStart = await page.evaluate(() => {
     const canvas = document.querySelector(".scene canvas"), rect = canvas.getBoundingClientRect();
@@ -192,7 +216,7 @@ try {
   await page.getByLabel("Volume", { exact: true }).last().fill("10");
   await page.getByRole("button", { name: "Add stock to selected" }).click();
   await page.getByLabel("Transfer to").selectOption("f1");
-  await page.getByRole("button", { name: "Transfer volume" }).click();
+  await page.getByRole("button", { name: "Transfer measured volume" }).click();
   custom = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
   customSession = custom.sessions.find((entry) => entry.id === custom.activeId);
   assert.equal(customSession.core.workspace.objects.b1.volumeMl, 0);
@@ -204,6 +228,67 @@ try {
   assert.equal(customSession.core.workspace.objects.f1.solutes.HCl, 0.001);
   await page.getByRole("button", { name: "Free exploration", exact: true }).click();
   await page.locator("canvas").waitFor();
+  await equipmentPicker.selectOption("dropper");
+  await page.getByLabel("Equipment ID").fill("d1");
+  await page.getByLabel("Bench X").fill("-3");
+  await page.getByLabel("Bench Z").fill("-1");
+  await page.getByRole("button", { name: "Place equipment" }).click();
+  await page.getByRole("button", { name: /Dropper.*d1/ }).click();
+  await page.locator(".guide-panel select").first().selectOption("acid");
+  await page.getByLabel("Volume", { exact: true }).last().fill("5");
+  await page.getByRole("button", { name: "Add stock to selected" }).click();
+  await page.getByRole("combobox", { name: "Connect selected ports to" }).selectOption("f1");
+  await page.getByRole("button", { name: /Connect tip/ }).click();
+  await page.getByLabel("Transfer to").selectOption("f1");
+  await page.getByLabel("Volume", { exact: true }).last().fill("2");
+  await page.getByRole("button", { name: "Dispense measured volume" }).click();
+  custom = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
+  customSession = custom.sessions.find((entry) => entry.id === custom.activeId);
+  assert.equal(customSession.core.workspace.objects.d1.volumeMl, 3);
+  assert.equal(customSession.core.workspace.objects.f1.volumeMl, 12);
+  assert.ok(Math.abs(customSession.core.workspace.objects.d1.solutes.HCl - 0.0003) < 1e-12);
+  assert.ok(Math.abs(customSession.core.workspace.objects.f1.solutes.HCl - 0.0012) < 1e-12);
+  await page.locator(".equipment-panel .transform-controls").first().locator(".result-row").filter({ hasText: "d1:tip" }).getByRole("button", { name: "Disconnect" }).click();
+  for (const [kind, dispenserId, benchZ, expectedVolume] of [["pipette", "p1", 0, 13], ["burette", "u1", 1, 14]]) {
+    await page.locator(".equipment-panel select").first().selectOption(kind);
+    await page.getByLabel("Equipment ID").fill(dispenserId);
+    await page.getByLabel("Bench X").fill("-3");
+    await page.getByLabel("Bench Z").fill(String(benchZ));
+    await page.getByRole("button", { name: "Place equipment" }).click();
+    await page.getByRole("button", { name: new RegExp(`${kind === "burette" ? "Burette" : "Pipette"}.*${dispenserId}`) }).click();
+    await page.getByLabel("Volume", { exact: true }).last().fill("5");
+    await page.getByRole("button", { name: "Add stock to selected" }).click();
+    await page.getByRole("combobox", { name: "Connect selected ports to" }).selectOption("f1");
+    await page.getByRole("button", { name: /Connect tip/ }).click();
+    await page.getByLabel("Transfer to").selectOption("f1");
+    await page.getByLabel("Volume", { exact: true }).last().fill("1");
+    await page.getByRole("button", { name: "Dispense measured volume" }).click();
+    custom = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
+    customSession = custom.sessions.find((entry) => entry.id === custom.activeId);
+    assert.equal(customSession.core.workspace.objects[dispenserId].volumeMl, 4);
+    assert.equal(customSession.core.workspace.objects.f1.volumeMl, expectedVolume);
+    assert.ok(Math.abs(customSession.core.workspace.objects[dispenserId].solutes.HCl - 0.0004) < 1e-12);
+    assert.ok(Math.abs(customSession.core.workspace.objects.f1.solutes.HCl - expectedVolume * 0.0001) < 1e-12);
+    await page.locator(".equipment-panel .transform-controls").first().locator(".result-row").filter({ hasText: `${dispenserId}:tip` }).getByRole("button", { name: "Disconnect" }).click();
+  }
+  page.once("dialog", (dialog) => dialog.accept("Browser-built workbench renamed"));
+  await page.getByRole("button", { name: "Rename session" }).click();
+  await page.getByRole("button", { name: "Duplicate session" }).click();
+  custom = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
+  customSession = custom.sessions.find((entry) => entry.id === custom.activeId);
+  assert.match(customSession.name, /\(copy\)$/);
+  assert.equal(customSession.core.workspace.objects.d1.volumeMl, 3);
+  const workbenchExport = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export workspace" }).click();
+  await (await workbenchExport).saveAs("/tmp/materia-free-workbench.json");
+  await page.locator('input[type="file"]').setInputFiles("/tmp/materia-free-workbench.json");
+  await page.waitForFunction(() => [...document.querySelectorAll("select option")].some((option) => option.textContent.includes("(imported)")));
+  custom = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
+  customSession = custom.sessions.find((entry) => entry.id === custom.activeId);
+  assert.match(customSession.name, /\(imported\)$/);
+  assert.equal(customSession.core.workspace.objects.d1.volumeMl, 3);
+  await page.getByRole("button", { name: "Free exploration", exact: true }).click();
+  await page.locator("canvas").waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "artifacts/new-workbench-mobile.png", fullPage: true });
   assert.equal(await page.getByRole("button", { name: "Place equipment" }).isVisible(), true);
@@ -211,7 +296,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   assert.deepEqual(errors, []);
   console.log(
-    "Browser workflow passed: Chromium SwiftShader rendering; neutralization, oxygen, precipitation and dilution sessions; custom empty workbench placement, movement, rotation, chemical transfer, typed connections, undo/redo, persistence, export/import and mobile viewport.",
+    "Browser workflow passed: Chromium SwiftShader rendering; neutralization and measured transfer; precipitation product; dilution concentration; disconnected oxygen retention and later gas collection; free-workbench dropper, pipette and burette dispensing, placement, movement, rotation, connection, undo/redo, save/reopen, duplicate/rename, export/import; mobile viewport.",
   );
 } finally {
   await browser?.close();

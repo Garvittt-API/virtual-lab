@@ -20,13 +20,15 @@ The web app has no backend, database, authentication, deployment configuration, 
 
 Discover launches acid-base neutralization and oxygen from decomposition. Reaction exercises can launch those plus ideal AgCl precipitation and NaCl dilution. Guided and free entry points, the old Liquid workspace route, and the oxygen activity use `SessionWorkbench`, `dispatchLab`, and a session-linked notebook. Legacy `materia-oxygen`, `materia-session`, and `materia-liquid` data is validated and copied once to the canonical session store; original keys remain unchanged.
 
-The oxygen experiment retains its five manually triggered 20% conversion steps, 1.00 g KClO₃ model, 3:2 O₂ stoichiometry, complete capture assumption, and ideal gas volume at 0 °C and 1 atm. It now stores a derived material ledger inside the canonical session; the apparatus connection is still an activity-specific compatibility flag, and bubbles/displacement remain illustrative.
+The oxygen experiment retains its five manually triggered 20% conversion steps and 1.00 g KClO₃ model. Typed gas connections route generated oxygen into a 500 mL collection vessel; excess remains in the reaction vessel. Collection volume uses 22.414 L/mol at 0 °C and 1 atm. These are inventory and capacity calculations, not flow, heating, or kinetic models.
 
 Legacy neutralization retains the 25.0 mL 0.1 M HCl starting volume, entered NaOH volume, charge-balance pH at 25 °C, and excess-reactant result. Migration materializes the aqueous inventory and applies the balanced reaction once. Current guided neutralization also calculates pH from remaining inventory after reaction.
 
 ## Model and safety
 
-The models assume ideal educational chemistry. Neutralization assumes full dissociation, monoprotic strong acid/base, charge balance and additive volume. Precipitation assumes complete AgCl formation without Ksp/equilibrium. Dilution assumes additive volumes and immediate mixing. Oxygen assumes no side reactions, manually set conversion and ideal gas capture. No independent scientific validation is claimed. This is a digital simulation, not real-world lab instruction; hazardous materials and procedures require qualified supervision.
+The models assume ideal educational chemistry. Neutralization assumes full dissociation, monoprotic strong acid/base, charge balance and additive volume. Precipitation assumes complete AgCl formation without Ksp/equilibrium. Dilution assumes additive volumes and immediate mixing. Oxygen assumes no side reactions and manually set conversion. Liquid transfer is measured and conserves modeled volume and dissolved amount; visual cues follow committed state and do not simulate fluid dynamics. No independent scientific validation is claimed. This is a digital simulation, not real-world lab instruction; hazardous materials and procedures require qualified supervision.
+
+The free workbench supports stock addition, direct vessel transfer, connected dropper/pipette/burette dispensing, funnel routing, mixing, neutralization/precipitation, and volume/concentration/gas-inventory measurements. Condensers can be connected structurally, but condensation and thermal transfer are unavailable. Pressure, flow rates, heating kinetics, and temperature-dependent measurement are not modeled.
 
 ## Architecture and limits
 

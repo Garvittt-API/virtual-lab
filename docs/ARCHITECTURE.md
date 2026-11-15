@@ -2,7 +2,7 @@
 
 ## Current execution path
 
-All interactive experiment routes now open `SessionWorkbench`. It loads a validated version-2 `LabSession`, dispatches user actions through `dispatchLab`, and persists the resulting session collection under `materia-lab-sessions-v2`. Guided steps and free exploration share `lab/engine.js` workspace state and the same session notebook. Oxygen uses the same session controller and notebook, with a validated oxygen protocol ledger attached to its experiment manifest data. The existing OxygenScene remains a visual adapter; it does not own chemical results.
+All interactive experiment routes now open `SessionWorkbench`. It loads a validated version-2 `LabSession`, dispatches user actions through `dispatchLab`, and persists the resulting session collection under `materia-lab-sessions-v2`. Guided steps and free exploration share `lab/engine.js` workspace state and the same session notebook. Oxygen uses the same controller, renderer, typed apparatus topology, and phase-aware workspace inventory. Its checked protocol step count is progress metadata; it does not own chemical results.
 
 The React entries for Discover, the legacy Virtual lab sidebar item, Liquid workspace, Guided laboratory, Free exploration, Reaction exercises and saved experiment routes lead into the canonical session UI. The four current guided definitions are neutralization, silver chloride precipitation, dilution and oxygen. Discover lists neutralization and oxygen; Reaction exercises can launch all four.
 
@@ -25,9 +25,9 @@ The React entries for Discover, the legacy Virtual lab sidebar item, Liquid work
 
 ## Oxygen ledger
 
-The original oxygen protocol remains explicit: initial mass 1.00 g KClO₃, five manually selected 20% increments, complete capture, 2 KClO₃ → 2 KCl + 3 O₂, and ideal gas volume 22.414 L/mol at 0 °C and 1 atm. The ledger records initial, remaining and consumed KClO₃ moles, produced KCl, generated/collected O₂ moles, and collection volume. A step is accepted only when loaded, connected, below five steps, and within the existing burner-to-vessel distance. The transition and ledger are deterministic and independent of rendering.
+The original oxygen workflow remains explicit: initial mass 1.00 g KClO₃, five manually selected 20% increments, 2 KClO₃ → 2 KCl + 3 O₂, and ideal-gas capacity conversion at 22.414 L/mol (0 °C, 1 atm). The workspace stores remaining KClO₃, produced KCl, generated O₂, and collected O₂. A connected gas-port path is required for collection; receiver capacity is enforced, and excess remains in the reaction vessel. A heating action requires loaded reactant, a valid conversion fraction, and burner proximity. This deterministic stage is not a heating-rate or kinetic calculation.
 
-The stored gas volume is calculated from the inherited fixed ideal-gas model. It is not a pressure, temperature, kinetics, heat-transfer, or fluid-displacement simulation. Apparatus connectivity is currently represented by the protocol's validated boolean rather than a generic typed connection graph.
+The stored gas volume is calculated from the inherited fixed ideal-gas model. It is not a pressure, temperature, kinetics, heat-transfer, or fluid-displacement simulation. Protocol connectivity metadata is derived from and validated against the actual typed gas-port path in the workspace graph.
 
 ## Neutralization ledger
 
@@ -37,11 +37,11 @@ The new guided neutralization also calculates pH from residual strong acid/base 
 
 ## Rendering boundary
 
-`LiquidScene` and `OxygenScene` receive session-derived state. Their geometry, camera, and visual effects are display-only. Oxygen bubbles and water displacement remain illustrative. Chromium tests exercise actual WebGL canvas creation with SwiftShader; this is not a physical-device GPU profile. Renderer lifecycle and context-loss work remain incomplete.
+`LiquidScene` receives session-derived state. Its geometry and transfer/gas movement cues display already-committed inventory; they do not calculate chemistry. Chromium tests exercise actual WebGL canvas creation with SwiftShader; this is not a physical-GPU profile. Context-loss notification and renderer lifecycle cleanup exist, but physical-device restoration and memory behavior have not been verified.
 
 ## Remaining boundaries
 
 - `simulation/runner.js` still exports its previous pure calculation API for compatibility and unit tests. Product experiment execution no longer calls its in-memory `startExperiment`/`advanceExperiment` state machine.
 - Session storage is localStorage only. It has no cross-tab revision locking, server synchronization, account isolation, or backup service.
 - The global version-1 notebook is kept for historical/manual entries. The session notebook is authoritative for current laboratory events.
-- Oxygen uses its existing activity-specific visual scene and protocol fields rather than the general equipment registry and workspace topology.
+- Condenser joints and some support connections are structural topology only. No condensation, heat-transfer, pressure, flow-rate, heating-kinetics, or temperature-dependent measurement model is enabled.

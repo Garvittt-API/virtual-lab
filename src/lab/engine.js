@@ -404,13 +404,14 @@ export function execute(state, command) {
     if (Math.hypot(v.position[0] - burner.position[0], v.position[1] - burner.position[1]) > 1.2)
       throw new Error("Move the burner within 1.2 m of the reaction vessel");
     const yieldResult = react(reactions.oxygen, { KClO3: v.solids.KClO3 }, command.fraction);
+    const consumedKClO3 = yieldResult.extent * 2;
     v.solids.KClO3 = yieldResult.inventory.KClO3 || 0;
     v.solids.KCl = (v.solids.KCl || 0) + (yieldResult.produced.KCl || 0);
     const generated = yieldResult.produced.O2 || 0;
     v.gases.O2 = (v.gases.O2 || 0) + generated;
     burner.heated = true;
     const { collected } = collectAccessibleGas(next, v.id);
-    next.events.push(`Heated ${v.id}: generated ${generated} mol O₂, collected ${collected} mol, uncollected ${generated - collected} mol; converted ${(command.fraction * 100).toFixed(1)}% of the remaining reactant.`);
+    next.events.push(`Heating stage ${v.id}: consumed ${consumedKClO3.toPrecision(5)} mol KClO₃; generated ${generated} mol O₂, collected ${collected} mol, uncollected ${generated - collected} mol.`);
   } else throw new Error("Unsupported operation");
   validateWorkspace(next);
   return next;
