@@ -1,4 +1,5 @@
 import React, { useState, lazy, Suspense } from "react";
+import ExperimentErrorBoundary from "./ExperimentErrorBoundary";
 import { exportNotebook } from "./lab/notebook";
 import { equipment, stocks } from "./lab/registry";
 import { concentration } from "./lab/engine";
@@ -210,14 +211,18 @@ export default function FreeLab({ session, run }) {
             </span>
             <span>IDEAL MODEL</span>
           </div>
-          <Suspense fallback={<div className="scene">Loading workspace…</div>}>
-            <LiquidScene
-              state={workspace}
-              selected={active}
-              onSelect={setSelected}
-              onMove={move}
-            />
-          </Suspense>
+          <ExperimentErrorBoundary scene>
+            <Suspense
+              fallback={<div className="scene">Loading workspace…</div>}
+            >
+              <LiquidScene
+                state={workspace}
+                selected={active}
+                onSelect={setSelected}
+                onMove={move}
+              />
+            </Suspense>
+          </ExperimentErrorBoundary>
           <div className="scene-hint">
             Drag apparatus · drag background to orbit · scroll to zoom
           </div>

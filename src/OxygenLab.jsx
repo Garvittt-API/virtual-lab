@@ -1,4 +1,5 @@
 import React, { useState, lazy, Suspense } from "react";
+import ExperimentErrorBoundary from "./ExperimentErrorBoundary";
 import {
   initialOxygen,
   oxygenReaction,
@@ -208,16 +209,18 @@ export default function OxygenLab() {
             </div>
             <span>IDEAL MODEL</span>
           </div>
-          <Suspense
-            fallback={<div className="scene">Loading 3D workspace…</div>}
-          >
-            <OxygenScene
-              state={state}
-              selected={selected}
-              onSelect={setSelected}
-              onMove={move}
-            />
-          </Suspense>
+          <ExperimentErrorBoundary scene>
+            <Suspense
+              fallback={<div className="scene">Loading 3D workspace…</div>}
+            >
+              <OxygenScene
+                state={state}
+                selected={selected}
+                onSelect={setSelected}
+                onMove={move}
+              />
+            </Suspense>
+          </ExperimentErrorBoundary>
           <div className="scene-hint">
             Drag apparatus · drag background to orbit · scroll to zoom
           </div>
