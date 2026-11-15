@@ -1329,3 +1329,78 @@ main {
 .answer-incorrect {
   color: #a66a43;
 }
+.oxygen-page .tabs {
+  gap: 14px;
+}
+.oxygen-notes {
+  width: 100%;
+  min-height: 100px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #dfeae3;
+  border-radius: 8px;
+}
+.oxygen-option {
+  display: block;
+  font-size: 12px;
+  margin: 12px 0;
+  color: #5d786a;
+}
+.oxygen-option input {
+  accent-color: #2b8965;
+}
+.liquid-controls label {
+  display: block;
+  margin-top: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #648073;
+}
+.liquid-controls input,
+.liquid-controls select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #dfeae3;
+  border-radius: 6px;
+  padding: 8px;
+  background: white;
+  color: #416457;
+  font-size: 11px;
+}
+.liquid-controls .outline {
+  margin: 3px;
+  font-size: 10px;
+}
+.liquid-controls .safety {
+  margin-top: 18px;
+}
+.reaction-exercises select,
+.reaction-exercises textarea {
+  display: block;
+  width: 100%;
+  border: 1px solid #dfeae3;
+  border-radius: 8px;
+  padding: 10px;
+  background: white;
+  color: #416457;
+}
+.reaction-exercises textarea {
+  min-height: 80px;
+  margin: 8px 0;
+}
+.reaction-exercises p,
+.reaction-exercises li {
+  font-size: 12px;
+  color: #688077;
+  line-height: 1.7;
+}
+.reaction-exercises li {
+  padding: 4px;
+}
+.reaction-exercises .completed-step {
+  color: #2c8a63;
+}
+.reaction-exercises .safety {
+  margin: 16px 0;
+}

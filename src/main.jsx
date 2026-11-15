@@ -36,6 +36,12 @@ import {
   Info,
 } from "lucide-react";
 const Scene = lazy(() => import("./Scene"));
+const OxygenLab = lazy(() => import("./OxygenLab"));
+const LiquidLab = lazy(() => import("./LiquidLab"));
+const SessionWorkbench = lazy(() => import("./SessionWorkbench"));
+
+const SharedNotebook = lazy(() => import("./SharedNotebook"));
+const ReactionExercises = lazy(() => import("./ReactionExercises"));
 import { neutralization } from "./chemistry";
 import {
   neutralizationExperiment as experiment,
@@ -116,6 +122,36 @@ function Sidebar({ page, setPage }) {
       >
         <BookOpen size={18} /> Lab notebook
       </button>
+      <button
+        className={"nav-item " + (page === "liquid" ? "active" : "")}
+        onClick={() => setPage("liquid")}
+      >
+        <Beaker size={18} /> Liquid workspace
+      </button>
+      <button
+        className={"nav-item " + (page === "reactions" ? "active" : "")}
+        onClick={() => setPage("reactions")}
+      >
+        <FlaskConical size={18} /> Reaction exercises
+      </button>
+      <button
+        className={"nav-item " + (page === "guided" ? "active" : "")}
+        onClick={() => setPage("guided")}
+      >
+        <TestTube2 size={18} /> Guided laboratory
+      </button>
+      <button
+        className={"nav-item " + (page === "free" ? "active" : "")}
+        onClick={() => setPage("free")}
+      >
+        <Box size={18} /> Free exploration
+      </button>
+      <button
+        className={"nav-item " + (page === "shared-notebook" ? "active" : "")}
+        onClick={() => setPage("shared-notebook")}
+      >
+        <BookOpen size={18} /> Activity notebook
+      </button>
       <div className="side-divider" />
       <div className="nav-label">YOUR LEARNING</div>
       <button className="nav-item" onClick={() => setPage("saved")}>
@@ -166,7 +202,7 @@ function Topbar({ title, setPage }) {
     </header>
   );
 }
-function Library({ open, saved, setSaved }) {
+function Library({ open, openOxygen, saved, setSaved }) {
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState("All experiments");
   const matches =
@@ -174,6 +210,11 @@ function Library({ open, saved, setSaved }) {
       query.toLowerCase(),
     ) &&
     (filter === "All experiments" || filter === "Acid & base");
+  const matchesOxygen =
+    "oxygen decomposition potassium chlorate inorganic chemistry".includes(
+      query.toLowerCase(),
+    ) &&
+    (filter === "All experiments" || filter === "Inorganic chemistry");
   return (
     <>
       <div className="welcome">
@@ -215,7 +256,7 @@ function Library({ open, saved, setSaved }) {
           <p>Big discoveries begin with a single experiment.</p>
         </div>
         <div className="count-pill">
-          <span>01</span> interactive experiment
+          <span>02</span> interactive experiments
         </div>
       </div>
       <div className="filter-row">
@@ -239,6 +280,7 @@ function Library({ open, saved, setSaved }) {
             <option>All experiments</option>
             <option>Acid &amp; base</option>
             <option>Physical chemistry</option>
+            <option>Inorganic chemistry</option>
           </select>
           <ChevronDown size={14} />
         </div>
@@ -246,72 +288,95 @@ function Library({ open, saved, setSaved }) {
       <div className="results-line">
         <div>
           <b>All experiments</b>
-          <span>{matches ? "1 result" : "0 results"}</span>
+          <span>{Number(matches) + Number(matchesOxygen)} results</span>
         </div>
         <div>
           Sort by <b>Featured</b> <ChevronDown size={14} />
         </div>
       </div>
-      {matches ? (
+      {matches || matchesOxygen ? (
         <div className="cards">
-          <article className="experiment-card">
-            <button
-              className="card-image"
-              onClick={open}
-              aria-label="Open acid-base neutralization"
-            >
-              <img src="/lab-hero.png" alt="Flask and burette illustration" />
-              <span className="card-type">
-                <span /> INTERACTIVE 3D
-              </span>
-              <span className="image-open">
-                <ArrowUpRight size={19} />
-              </span>
-            </button>
-            <div className="card-body">
-              <div className="card-top">
-                <span>ACID & BASE</span>
-                <button
-                  className={"bookmark " + (saved ? "is-saved" : "")}
-                  onClick={() => setSaved(!saved)}
-                  aria-label={saved ? "Remove bookmark" : "Bookmark experiment"}
-                >
-                  <Bookmark size={18} fill={saved ? "currentColor" : "none"} />
+          {matches && (
+            <article className="experiment-card">
+              <button
+                className="card-image"
+                onClick={open}
+                aria-label="Open acid-base neutralization"
+              >
+                <img src="/lab-hero.png" alt="Flask and burette illustration" />
+                <span className="card-type">
+                  <span /> INTERACTIVE 3D
+                </span>
+                <span className="image-open">
+                  <ArrowUpRight size={19} />
+                </span>
+              </button>
+              <div className="card-body">
+                <div className="card-top">
+                  <span>ACID & BASE</span>
+                  <button
+                    className={"bookmark " + (saved ? "is-saved" : "")}
+                    onClick={() => setSaved(!saved)}
+                    aria-label={
+                      saved ? "Remove bookmark" : "Bookmark experiment"
+                    }
+                  >
+                    <Bookmark
+                      size={18}
+                      fill={saved ? "currentColor" : "none"}
+                    />
+                  </button>
+                </div>
+                <h3>Acid-base neutralization</h3>
+                <p>Explore how an acid and a base react, one drop at a time.</p>
+                <div className="card-meta">
+                  <span>
+                    <GraduationCap size={15} /> Beginner
+                  </span>
+                  <span>
+                    <Clock size={15} /> ~15 min
+                  </span>
+                  <span>
+                    <Layers3 size={15} /> Guided
+                  </span>
+                </div>
+                <button className="card-link" onClick={open}>
+                  Explore experiment <ArrowRight size={16} />
                 </button>
               </div>
-              <h3>Acid-base neutralization</h3>
-              <p>Explore how an acid and a base react, one drop at a time.</p>
-              <div className="card-meta">
-                <span>
-                  <GraduationCap size={15} /> Beginner
+            </article>
+          )}
+          {matchesOxygen && (
+            <article className="experiment-card">
+              <button
+                className="card-image"
+                onClick={openOxygen}
+                aria-label="Open oxygen decomposition"
+              >
+                <img
+                  src="/lab-hero.png"
+                  alt="Laboratory glassware illustration"
+                />
+                <span className="card-type">
+                  <span /> INTERACTIVE 3D
                 </span>
-                <span>
-                  <Clock size={15} /> ~15 min
-                </span>
-                <span>
-                  <Layers3 size={15} /> Guided
-                </span>
-              </div>
-              <button className="card-link" onClick={open}>
-                Explore experiment <ArrowRight size={16} />
               </button>
-            </div>
-          </article>
-          <div className="coming-card">
-            <div className="coming-icon">
-              <TestTube2 size={22} />
-            </div>
-            <span>MORE TO DISCOVER</span>
-            <h3>A growing lab of possibilities.</h3>
-            <p>
-              We're building more interactive experiments. For now, start with
-              our guided neutralization lab.
-            </p>
-            <button onClick={open}>
-              Try the experiment <ArrowRight size={15} />
-            </button>
-            <div className="coming-decoration">✳</div>
-          </div>
+              <div className="card-body">
+                <div className="card-top">
+                  <span>INORGANIC CHEMISTRY</span>
+                </div>
+                <h3>Oxygen from decomposition</h3>
+                <p>Explore idealized oxygen production and collection.</p>
+                <div className="card-meta">
+                  <span>Beginner</span>
+                  <span>Guided</span>
+                </div>
+                <button className="card-link" onClick={openOxygen}>
+                  Explore experiment <ArrowRight size={16} />
+                </button>
+              </div>
+            </article>
+          )}
         </div>
       ) : (
         <div className="empty">
@@ -804,7 +869,13 @@ function App() {
   const title = {
     library: "Discover",
     lab: "Virtual lab",
+    oxygen: "Oxygen simulation",
+    liquid: "Liquid workspace",
+    guided: "Guided laboratory",
+    free: "Free exploration",
+    reactions: "Reaction exercises",
     notebook: "Lab notebook",
+    "shared-notebook": "Activity notebook",
     saved: "Saved experiments",
     about: "About",
   }[page];
@@ -813,10 +884,18 @@ function App() {
       <Sidebar page={page} setPage={setPage} />
       <main>
         <Topbar title={title} setPage={setPage} />
-        <div className={"content " + (page === "lab" ? "lab-content" : "")}>
+        <div
+          className={
+            "content " +
+            (["lab", "oxygen", "liquid", "guided", "free"].includes(page)
+              ? "lab-content"
+              : "")
+          }
+        >
           {page === "library" ? (
             <Library
               open={() => setPage("lab")}
+              openOxygen={() => setPage("oxygen")}
               saved={saved}
               setSaved={setSaved}
             />
@@ -830,6 +909,30 @@ function App() {
               canRedo={!!future.length}
               reset={reset}
             />
+          ) : page === "oxygen" ? (
+            <Suspense fallback={<div>Loading experiment…</div>}>
+              <OxygenLab />
+            </Suspense>
+          ) : page === "liquid" ? (
+            <Suspense fallback={<div>Loading workspace…</div>}>
+              <LiquidLab />
+            </Suspense>
+          ) : page === "reactions" ? (
+            <Suspense fallback={<div>Loading exercises…</div>}>
+              <ReactionExercises />
+            </Suspense>
+          ) : page === "guided" ? (
+            <Suspense fallback={<div>Loading laboratory…</div>}>
+              <SessionWorkbench key="guided" initialMode="guided" />
+            </Suspense>
+          ) : page === "free" ? (
+            <Suspense fallback={<div>Loading workspace…</div>}>
+              <SessionWorkbench key="free" initialMode="free" />
+            </Suspense>
+          ) : page === "shared-notebook" ? (
+            <Suspense fallback={<div>Loading notebook…</div>}>
+              <SharedNotebook />
+            </Suspense>
           ) : page === "notebook" ? (
             <Notebook data={data} update={update} />
           ) : page === "saved" ? (

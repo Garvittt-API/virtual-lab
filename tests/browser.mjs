@@ -89,6 +89,25 @@ try {
     path: "artifacts/laboratory-mobile.png",
     fullPage: true,
   });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("button", { name: "Discover" }).click();
+  await page.getByRole("button", { name: "Open oxygen decomposition" }).click();
+  await page.locator("canvas").waitFor();
+  await page.getByRole("button", { name: "Connect vessels" }).click();
+  await page.getByRole("button", { name: "Add KClO₃" }).click();
+  for (let i = 0; i < 5; i++)
+    await page.getByRole("button", { name: "Simulate heating step" }).click();
+  await page.getByRole("button", { name: "Results", exact: true }).click();
+  assert.equal(await page.locator(".reading strong").textContent(), "274.3 mL");
+  await page.screenshot({ path: "artifacts/oxygen-laboratory.png" });
+  await page.getByRole("button", { name: "Notes", exact: true }).click();
+  await page.getByLabel("Your observations").fill("Collected simulated oxygen");
+  await page.reload();
+  state = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("materia-oxygen")),
+  );
+  assert.equal(state.steps, 5);
+  assert.equal(state.notes, "Collected simulated oxygen");
   assert.deepEqual(errors, []);
   console.log(
     "Browser workflow passed: WebGL scene, titration, transforms, notebook/export, undo, persistence and mobile layout.",
