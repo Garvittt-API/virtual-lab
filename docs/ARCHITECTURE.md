@@ -4,7 +4,7 @@
 
 All interactive experiment routes now open `SessionWorkbench`. It loads a validated version-2 `LabSession`, dispatches user actions through `dispatchLab`, and persists the resulting session collection under `materia-lab-sessions-v2`. Guided steps and free exploration share `lab/engine.js` workspace state and the same session notebook. Oxygen uses the same controller, renderer, typed apparatus topology, and phase-aware workspace inventory. Its checked protocol step count is progress metadata; it does not own chemical results.
 
-The React entries for Discover, the legacy Virtual lab sidebar item, Liquid workspace, Guided laboratory, Free exploration, Reaction exercises and saved experiment routes lead into the canonical session UI. The four current guided definitions are neutralization, silver chloride precipitation, dilution and oxygen. Discover lists neutralization and oxygen; Reaction exercises can launch all four.
+The React entries for Discover, the legacy Virtual lab sidebar item, Liquid workspace, Guided laboratory, Free exploration, Reaction exercises and saved experiment routes lead into the canonical session UI. The four current built-in definitions are neutralization, silver chloride precipitation, dilution and oxygen. Discover adapts those existing definitions into a searchable library and includes locally published authored definitions; every launch uses the same canonical session UI. Reaction exercises can launch all four built-ins.
 
 ## State ownership map
 
@@ -45,3 +45,8 @@ The new guided neutralization also calculates pH from residual strong acid/base 
 - Session storage is localStorage only. It has no cross-tab revision locking, server synchronization, account isolation, or backup service.
 - The global version-1 notebook is kept for historical/manual entries. The session notebook is authoritative for current laboratory events.
 - Condenser joints and some support connections are structural topology only. No condensation, heat-transfer, pressure, flow-rate, heating-kinetics, or temperature-dependent measurement model is enabled.
+# Experiment authoring and reusable library
+
+The experiment authoring studio persists versioned definitions in the browser's `materia-experiment-library-v1` local storage record. It adapts existing experiment metadata from `src/lab/guided.js`, validates authored starting states and instruction sequences against `src/lab/registry.js`, `src/lab/engine.js`, and `src/simulation/reactions.js`, and stores published definitions as snapshots in guided canonical sessions. Preview and launch use `SessionWorkbench` and the same `LiquidScene` used by built-in experiments; no experiment-specific renderer is introduced.
+
+Imported definitions are plain JSON with a fixed export envelope and allowlisted command types. A schema v1 to v2 migration fills explicit defaults before strict validation. This is a client-side authoring system: browser storage is not a trust boundary, there is no server identity/role system, and local publication is not server authorization. See [EXPERIMENT_AUTHORING.md](EXPERIMENT_AUTHORING.md) and [EXPERIMENT_MANIFEST_SCHEMA.md](EXPERIMENT_MANIFEST_SCHEMA.md).

@@ -40,7 +40,8 @@ const SessionWorkbench = lazy(() => import("./SessionWorkbench"));
 
 const SharedNotebook = lazy(() => import("./SharedNotebook"));
 const ReactionExercises = lazy(() => import("./ReactionExercises"));
-import { parseExperimentRoute, experimentHash } from "./lab/launch";
+import { parseExperimentRoute, experimentHash, resolvePublishedExperiment } from "./lab/launch";
+import { getPublishedExperiment } from "./lab/experiment-authoring";
 import ExperimentErrorBoundary from "./ExperimentErrorBoundary";
 import "./style.css";
 function Logo() {
@@ -65,6 +66,12 @@ function Sidebar({ page, setPage }) {
         onClick={() => setPage("library")}
       >
         <Grid2X2 size={18} /> Discover <span className="nav-arrow">›</span>
+      </button>
+      <button
+        className={"nav-item " + (page === "authoring" ? "active" : "")}
+        onClick={() => setPage("authoring")}
+      >
+        <FlaskConical size={18} /> Authoring studio
       </button>
       <button
         className={"nav-item " + (page === "lab" ? "active" : "")}
@@ -158,198 +165,17 @@ function Topbar({ title, setPage }) {
     </header>
   );
 }
-function Library({ open, openOxygen, saved, setSaved }) {
-  const [query, setQuery] = useState(""),
-    [filter, setFilter] = useState("All experiments");
-  const matches =
-    "acid base neutralization titration strong acid chemistry".includes(
-      query.toLowerCase(),
-    ) &&
-    (filter === "All experiments" || filter === "Acid & base");
-  const matchesOxygen =
-    "oxygen decomposition potassium chlorate inorganic chemistry".includes(
-      query.toLowerCase(),
-    ) &&
-    (filter === "All experiments" || filter === "Inorganic chemistry");
-  return (
-    <>
-      <div className="welcome">
-        <div>
-          <div className="eyebrow">
-            <span className="eyebrow-dot" /> THE VIRTUAL CHEMISTRY LAB
-          </div>
-          <h1>
-            Curiosity looks good on you<span>.</span>
-          </h1>
-          <p>
-            A little curiosity goes a long way. Explore, experiment, and
-            <br className="desktop" /> discover chemistry in a whole new
-            dimension.
-          </p>
-          <button className="primary" onClick={open}>
-            Enter the virtual lab <ArrowRight size={16} />
-          </button>
-        </div>
-        <div className="hero-art">
-          <img src="/lab-hero.png" alt="Illustration of laboratory glassware" />
-          <div className="hero-tag">
-            <span>
-              <Sparkles size={16} />
-            </span>
-            <div>
-              <b>Made for discovery</b>
-              <small>Your lab, wherever you are.</small>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="section-head">
-        <div>
-          <div className="eyebrow muted">FIND SOMETHING FASCINATING</div>
-          <h2>
-            Explore experiments <span>✳</span>
-          </h2>
-          <p>Big discoveries begin with a single experiment.</p>
-        </div>
-        <div className="count-pill">
-          <span>02</span> interactive experiments
-        </div>
-      </div>
-      <div className="filter-row">
-        <div className="search">
-          <Search size={18} />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search experiments, topics..."
-            aria-label="Search experiments"
-          />
-          <span>⌘ K</span>
-        </div>
-        <div className="select-wrap">
-          <SlidersHorizontal size={16} />
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            aria-label="Filter experiments"
-          >
-            <option>All experiments</option>
-            <option>Acid &amp; base</option>
-            <option>Physical chemistry</option>
-            <option>Inorganic chemistry</option>
-          </select>
-          <ChevronDown size={14} />
-        </div>
-      </div>
-      <div className="results-line">
-        <div>
-          <b>All experiments</b>
-          <span>{Number(matches) + Number(matchesOxygen)} results</span>
-        </div>
-        <div>
-          Sort by <b>Featured</b> <ChevronDown size={14} />
-        </div>
-      </div>
-      {matches || matchesOxygen ? (
-        <div className="cards">
-          {matches && (
-            <article className="experiment-card">
-              <button
-                className="card-image"
-                onClick={open}
-                aria-label="Open acid-base neutralization"
-              >
-                <img src="/lab-hero.png" alt="Flask and burette illustration" />
-                <span className="card-type">
-                  <span /> INTERACTIVE 3D
-                </span>
-                <span className="image-open">
-                  <ArrowUpRight size={19} />
-                </span>
-              </button>
-              <div className="card-body">
-                <div className="card-top">
-                  <span>ACID & BASE</span>
-                  <button
-                    className={"bookmark " + (saved ? "is-saved" : "")}
-                    onClick={() => setSaved(!saved)}
-                    aria-label={
-                      saved ? "Remove bookmark" : "Bookmark experiment"
-                    }
-                  >
-                    <Bookmark
-                      size={18}
-                      fill={saved ? "currentColor" : "none"}
-                    />
-                  </button>
-                </div>
-                <h3>Acid-base neutralization</h3>
-                <p>Explore how an acid and a base react, one drop at a time.</p>
-                <div className="card-meta">
-                  <span>
-                    <GraduationCap size={15} /> Beginner
-                  </span>
-                  <span>
-                    <Clock size={15} /> ~15 min
-                  </span>
-                  <span>
-                    <Layers3 size={15} /> Guided
-                  </span>
-                </div>
-                <button className="card-link" onClick={open}>
-                  Explore experiment <ArrowRight size={16} />
-                </button>
-              </div>
-            </article>
-          )}
-          {matchesOxygen && (
-            <article className="experiment-card">
-              <button
-                className="card-image"
-                onClick={openOxygen}
-                aria-label="Open oxygen decomposition"
-              >
-                <img
-                  src="/lab-hero.png"
-                  alt="Laboratory glassware illustration"
-                />
-                <span className="card-type">
-                  <span /> INTERACTIVE 3D
-                </span>
-              </button>
-              <div className="card-body">
-                <div className="card-top">
-                  <span>INORGANIC CHEMISTRY</span>
-                </div>
-                <h3>Oxygen from decomposition</h3>
-                <p>Explore idealized oxygen production and collection.</p>
-                <div className="card-meta">
-                  <span>Beginner</span>
-                  <span>Guided</span>
-                </div>
-                <button className="card-link" onClick={openOxygen}>
-                  Explore experiment <ArrowRight size={16} />
-                </button>
-              </div>
-            </article>
-          )}
-        </div>
-      ) : (
-        <div className="empty">
-          <Search size={24} />
-          <h3>No experiments found</h3>
-          <p>Try another search or category.</p>
-        </div>
-      )}
-      <div className="library-footer">
-        <span>BUILT FOR THE INFINITELY CURIOUS</span>
-        <span>Learn by doing. Discover by exploring. ✳</span>
-      </div>
-    </>
-  );
-}
+const ExperimentLibrary = lazy(() => import("./ExperimentLibrary"));
+const ExperimentAuthoringStudio = lazy(() => import("./ExperimentAuthoringStudio"));
 export function App() {
-  const readRoute = () => parseExperimentRoute(window.location.hash);
+  const readRoute = () => {
+    const route = parseExperimentRoute(window.location.hash);
+    if (route && !route.experiment) {
+      try { route.experiment = resolvePublishedExperiment(localStorage, route.id); }
+      catch { route.experiment = null; }
+    }
+    return route;
+  };
   const [route, setRoute] = useState(readRoute),
     [basePage, setBasePage] = useState("library"),
     page = route ? "experiment" : basePage,
@@ -362,13 +188,22 @@ export function App() {
       setRoute(null);
       setBasePage(next);
     },
-    launch = (id) => {
+    launch = (item) => {
+      const id = typeof item === "string" ? item : item.id;
       const hash = experimentHash(id);
       window.history.pushState(null, "", hash);
-      setRoute(parseExperimentRoute(hash));
+      setRoute(readRoute());
     },
-    [saved, setSavedState] = useState(
-      () => localStorage.getItem("materia-bookmark") === "true",
+    launchLibraryItem = (item) => {
+      if (item.builtIn) launch(item.id);
+      else {
+        const hash = `#/experiments/${item.id}`;
+        window.history.pushState(null, "", hash);
+        setRoute({ id: item.id, experiment: item });
+      }
+    },
+    [savedId, setSavedId] = useState(
+      () => localStorage.getItem("materia-bookmark-id") || (localStorage.getItem("materia-bookmark") === "true" ? "neutralization" : ""),
     );
   useEffect(() => {
     const onNavigation = () => {
@@ -382,13 +217,16 @@ export function App() {
       window.removeEventListener("hashchange", onNavigation);
     };
   }, []);
-  function setSaved(v) {
-    setSavedState(v);
-    localStorage.setItem("materia-bookmark", v);
+  function toggleSaved(id) {
+    const next = savedId === id ? "" : id;
+    setSavedId(next);
+    localStorage.setItem("materia-bookmark-id", next);
+    localStorage.setItem("materia-bookmark", String(Boolean(next)));
   }
   const title = {
     library: "Discover",
     experiment: route?.experiment?.title || "Experiment",
+    authoring: "Authoring studio",
     lab: "Virtual lab",
     oxygen: "Oxygen simulation",
     liquid: "Liquid workspace",
@@ -421,12 +259,13 @@ export function App() {
           }
         >
           {page === "library" ? (
-            <Library
-              open={() => launch("neutralization")}
-              openOxygen={() => launch("oxygen")}
-              saved={saved}
-              setSaved={setSaved}
-            />
+            <Suspense fallback={<div role="status">Loading experiment library…</div>}>
+              <ExperimentLibrary onLaunch={launchLibraryItem} onAuthoring={() => setPage("authoring")} savedId={savedId} onToggleSaved={toggleSaved} />
+            </Suspense>
+          ) : page === "authoring" ? (
+            <Suspense fallback={<div role="status">Loading authoring studio…</div>}>
+              <ExperimentAuthoringStudio onLibrary={() => setPage("library")} />
+            </Suspense>
           ) : page === "experiment" ? (
             route.experiment ? (
               <ExperimentErrorBoundary
@@ -438,7 +277,8 @@ export function App() {
                 >
                   <SessionWorkbench
                     initialMode="guided"
-                    experimentId={route.id}
+                    experimentId={route.experiment?.builtIn ? route.id : undefined}
+                    initialManifest={route.experiment?.schemaVersion ? route.experiment : undefined}
                     onReturn={() => setPage("library")}
                   />
                 </Suspense>
@@ -495,9 +335,9 @@ export function App() {
                 Saved experiments<span>.</span>
               </h1>
               <p>Keep your favorite discoveries close by.</p>
-              {saved ? (
-                <button className="saved-row" onClick={() => setPage("lab")}>
-                  <FlaskConical /> Acid-base neutralization{" "}
+              {savedId ? (
+                <button className="saved-row" onClick={() => launchLibraryItem(getPublishedExperiment(localStorage, savedId))}>
+                  <FlaskConical /> {getPublishedExperiment(localStorage, savedId)?.title || "Saved experiment"}{" "}
                   <ArrowRight size={18} />
                 </button>
               ) : (

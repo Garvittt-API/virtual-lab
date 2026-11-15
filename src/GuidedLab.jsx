@@ -12,17 +12,15 @@ function GuidedStepControl({ step, workspace, run }) {
   }));
   const update = (key, value) =>
     setCommand((current) => ({ ...current, [key]: value }));
-  const vessels = Object.values(workspace.objects).filter((v) =>
-    equipment[v.kind].operations.includes("receive"),
-  );
-  const vesselSelect = (key, label) => (
+  const vessels = Object.values(workspace.objects);
+  const vesselSelect = (key, label, operation = "receive") => (
     <label>
       {label}
       <select
         value={command[key] || ""}
         onChange={(e) => update(key, e.target.value)}
       >
-        {vessels.map((v) => (
+        {vessels.filter((v) => equipment[v.kind].operations.includes(operation)).map((v) => (
           <option key={v.id} value={v.id}>
             {equipment[v.kind].name} · {v.id}
           </option>
@@ -58,10 +56,17 @@ function GuidedStepControl({ step, workspace, run }) {
         <>
           {vesselSelect("from", "Source vessel")}
           {vesselSelect("to", "Destination vessel")}
+          {step.command.via && (
+            <label>Funnel
+              <select value={command.via || step.command.via} onChange={(e) => update("via", e.target.value)}>
+                <option value={step.command.via}>{step.command.via}</option>
+              </select>
+            </label>
+          )}
         </>
       )}
-      {["mix", "react", "measure"].includes(step.command.type) &&
-        vesselSelect("id", "Vessel")}
+      {["mix", "react", "measure", "measure-volume"].includes(step.command.type) && vesselSelect("id", "Vessel")}
+      {step.command.type === "measure-gas" && vesselSelect("id", "Gas measurement vessel", "measure-gas")}
       {step.command.type === "react" && (
         <label>
           Reaction
@@ -111,8 +116,9 @@ export default function GuidedLab({ session, run, startExperiment }) {
   const [selected, setSelected] = useState("a"),
     [note, setNote] = useState("");
   const { workspace, experiment } = session.core,
-    manifest = guidedManifests[experiment.id],
-    step = manifest.steps[experiment.step],
+    manifest = experiment.definition || guidedManifests[experiment.id],
+    steps = experiment.definition ? manifest.instructions : manifest.steps,
+    step = steps[experiment.step],
     item = workspace.objects[selected] || Object.values(workspace.objects)[0];
   function change(e) {
     if (window.confirm("Start a new independent guided session?")) {
@@ -249,7 +255,9 @@ export default function GuidedLab({ session, run, startExperiment }) {
                 id="guided-experiment"
                 value={experiment.id}
                 onChange={change}
+                disabled={Boolean(experiment.definition)}
               >
+                {experiment.definition && <option value={experiment.id}>{experiment.definition.title}</option>}
                 {Object.values(guidedManifests).map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.title}
@@ -259,7 +267,7 @@ export default function GuidedLab({ session, run, startExperiment }) {
             </label>
             <h3>Procedure</h3>
             <ol>
-              {manifest.steps.map((s, i) => (
+              {steps.map((s, i) => (
                 <li
                   key={s.id}
                   className={i < experiment.step ? "completed-step" : ""}
@@ -283,7 +291,7 @@ export default function GuidedLab({ session, run, startExperiment }) {
             <div className="safety">
               <b>Safety and model</b>
               <p>
-                {manifest.safety} {manifest.model}
+                {manifest.safety || (manifest.safetyWarnings || []).join(" ")} {manifest.model || (manifest.scientificAssumptions || []).join(" ")}
               </p>
             </div>
             {item && (

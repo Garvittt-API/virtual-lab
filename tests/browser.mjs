@@ -40,11 +40,12 @@ try {
     viewport: { width: 1440, height: 900 },
     acceptDownloads: true,
   });
+  page.setDefaultTimeout(10000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("http://127.0.0.1:5181/", { waitUntil: "networkidle" });
   await page.screenshot({ path: "artifacts/discover.png" });
-  await page.getByRole("button", { name: "Open acid-base neutralization" }).click();
+  await page.locator(".experiment-card").filter({ hasText: "Acid-base neutralization" }).getByRole("button", { name: "Open experiment" }).click();
   await page.locator("canvas").waitFor();
   await page.screenshot({ path: "artifacts/laboratory.png" });
 
@@ -98,7 +99,7 @@ try {
   assert.ok(saved.sessions.some((entry) => entry.notebook.entries.some((item) => item.text === "Neutral endpoint recorded")));
 
   await page.getByRole("button", { name: "Discover" }).click();
-  await page.getByRole("button", { name: "Open oxygen decomposition" }).click();
+  await page.locator(".experiment-card").filter({ hasText: "Oxygen from decomposition" }).getByRole("button", { name: "Open experiment" }).click();
   await page.locator("canvas").waitFor();
   await page.getByRole("button", { name: "Add KClO₃" }).click();
   await page.getByRole("status").filter({ hasText: "No gas path connected" }).waitFor();
@@ -282,7 +283,10 @@ try {
   await page.getByRole("button", { name: "Export workspace" }).click();
   await (await workbenchExport).saveAs("/tmp/materia-free-workbench.json");
   await page.locator('input[type="file"]').setInputFiles("/tmp/materia-free-workbench.json");
-  await page.waitForFunction(() => [...document.querySelectorAll("select option")].some((option) => option.textContent.includes("(imported)")));
+  await page.waitForFunction(() => {
+    const store = JSON.parse(localStorage.getItem("materia-lab-sessions-v2"));
+    return store?.sessions.find((entry) => entry.id === store.activeId)?.name.endsWith("(imported)");
+  });
   custom = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
   customSession = custom.sessions.find((entry) => entry.id === custom.activeId);
   assert.match(customSession.name, /\(imported\)$/);
@@ -294,9 +298,75 @@ try {
   assert.equal(await page.getByRole("button", { name: "Place equipment" }).isVisible(), true);
   assert.equal(await page.getByRole("button", { name: "Place equipment" }).evaluate((button) => button.getBoundingClientRect().right <= window.innerWidth), true);
   await page.setViewportSize({ width: 1440, height: 900 });
+
+  await page.getByRole("button", { name: "Authoring studio" }).click();
+  await page.getByRole("button", { name: "New experiment", exact: true }).click();
+  await page.getByLabel("Title", { exact: true }).fill("Browser authored neutralization");
+  await page.getByRole("tab", { name: "Setup" }).click();
+  await page.getByRole("button", { name: "Add equipment" }).click();
+  await page.getByRole("button", { name: "Add equipment" }).click();
+  await page.locator(".author-section .author-row").nth(1).locator("select").first().selectOption("funnel");
+  await page.getByRole("button", { name: "Add initial solution" }).click();
+  await page.getByRole("button", { name: "Add initial solution" }).click();
+  await page.locator(".author-section .author-row").nth(3).locator("select").nth(1).selectOption("base");
+  await page.getByRole("button", { name: "Add connection" }).click();
+  const connectionRow = page.locator(".author-section .author-row").last();
+  await connectionRow.getByLabel("Equipment A").selectOption("v2");
+  await connectionRow.getByLabel("Port A").selectOption("stem");
+  await connectionRow.getByLabel("Equipment B").selectOption("v1");
+  await connectionRow.getByLabel("Port B").selectOption("mouth");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  const setupDraft = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-experiment-library-v1")).drafts.at(-1));
+  assert.equal(setupDraft.apparatus[1].kind, "funnel");
+  assert.equal(setupDraft.initialChemicals.length, 2);
+  assert.deepEqual(setupDraft.initialConnections, [{ a: "v2", ap: "stem", b: "v1", bp: "mouth" }]);
+  await page.getByRole("tab", { name: "Procedure" }).click();
+  await page.getByRole("button", { name: "Add instruction" }).click();
+  await page.getByRole("button", { name: "Add instruction" }).click();
+  await page.locator(".author-step").nth(0).locator("select").first().selectOption("mix");
+  await page.locator(".author-step").nth(1).locator("select").first().selectOption("react");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  const procedureDraft = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-experiment-library-v1")).drafts.at(-1));
+  assert.deepEqual(procedureDraft.instructions.map((step) => step.command.id), ["v1", "v1"]);
+  await page.getByRole("tab", { name: "Review" }).click();
+  await page.getByRole("button", { name: "Validate definition" }).click();
+  await page.getByRole("status").filter({ hasText: "Validation passed" }).waitFor();
+  await page.getByRole("button", { name: "Preview in 3D workbench" }).click();
+  await page.locator("canvas").waitFor();
+  await page.getByRole("button", { name: "Perform mix" }).click();
+  await page.getByRole("button", { name: "Perform react" }).click();
+  await page.getByText("Procedure complete.").waitFor();
+  let authoredSessions = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
+  let authoredSession = authoredSessions.sessions.find((entry) => entry.id === authoredSessions.activeId);
+  assert.equal(authoredSession.core.experiment.definition.title, "Browser authored neutralization");
+  assert.ok(authoredSession.core.workspace.events.some((event) => event.includes("Reaction neutralization")));
+  await page.getByRole("button", { name: "Return to authoring studio" }).click();
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await page.getByRole("button", { name: "Discover" }).click();
+  await page.getByRole("button", { name: "Authoring studio" }).click();
+  await page.getByRole("button", { name: /Browser authored neutralization/ }).click();
+  await page.getByRole("tab", { name: "Review" }).click();
+  await page.getByRole("button", { name: "Validate definition" }).click();
+  await page.getByRole("button", { name: "Publish validated experiment" }).click();
+  await page.getByRole("button", { name: "Discover" }).click();
+  await page.getByLabel("Search published experiments").fill("Browser authored neutralization");
+  await page.getByRole("button", { name: "Launch experiment" }).click();
+  await page.locator("canvas").waitFor();
+  await page.getByRole("button", { name: "Perform mix" }).click();
+  authoredSessions = await page.evaluate(() => JSON.parse(localStorage.getItem("materia-lab-sessions-v2")));
+  authoredSession = authoredSessions.sessions.find((entry) => entry.id === authoredSessions.activeId);
+  assert.equal(authoredSession.core.experiment.definition.id.startsWith("author-"), true);
+  assert.equal(authoredSession.core.experiment.step, 1);
+  await page.getByRole("button", { name: "Discover" }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "artifacts/experiment-library-mobile.png", fullPage: true });
+  await page.getByRole("button", { name: "Authoring studio" }).click();
+  await page.screenshot({ path: "artifacts/authoring-studio-mobile.png", fullPage: true });
+  assert.equal(await page.getByRole("button", { name: "New experiment", exact: true }).isVisible(), true);
+  await page.setViewportSize({ width: 1440, height: 900 });
   assert.deepEqual(errors, []);
   console.log(
-    "Browser workflow passed: Chromium SwiftShader rendering; neutralization and measured transfer; precipitation product; dilution concentration; disconnected oxygen retention and later gas collection; free-workbench dropper, pipette and burette dispensing, placement, movement, rotation, connection, undo/redo, save/reopen, duplicate/rename, export/import; mobile viewport.",
+    "Browser workflow passed: Chromium SwiftShader rendering; built-in chemistry and oxygen workflows; free-workbench equipment, persistence and import/export; authored draft setup, validation, actual 3D preview, reopen, publish, library search and launch; mobile library and authoring layouts.",
   );
 } finally {
   await browser?.close();

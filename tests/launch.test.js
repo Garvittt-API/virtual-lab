@@ -20,11 +20,11 @@ test("card launch wiring uses real IDs and corresponding workbenches", () => {
     new URL("../src/main.jsx", import.meta.url),
     "utf8",
   );
-  assert.match(source, /open=\{\(\) => launch\("neutralization"\)\}/);
-  assert.match(source, /openOxygen=\{\(\) => launch\("oxygen"\)\}/);
+  assert.match(source, /<ExperimentLibrary onLaunch=\{launchLibraryItem\}/);
+  assert.match(source, /if \(item\.builtIn\) launch\(item\.id\)/);
   assert.match(
     source,
-    /<SessionWorkbench\s+initialMode="guided"\s+experimentId=\{route.id\}/,
+    /initialManifest=\{route\.experiment\?\.schemaVersion \? route\.experiment : undefined\}/,
   );
   assert.match(source, /experimentId="oxygen"/);
   assert.equal(EXPERIMENTS.neutralization.kind, "guided");

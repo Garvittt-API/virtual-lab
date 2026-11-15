@@ -4,6 +4,7 @@ import {
   gasReceiver,
 } from "./engine.js";
 import { guidedManifests, experimentManifests, loadExperimentWorkspace } from "./guided.js";
+import { createWorkspaceFromManifest, validateExperimentManifest } from "./experiment-authoring.js";
 import { equipment } from "./registry.js";
 import {
   emptyNotebook,
@@ -53,8 +54,9 @@ export function hydrateOxygenCore(core, force = false) {
   return next;
 }
 /** @param {string} id */
-const experimentName = (id) =>
-  id === "oxygen" ? "Oxygen from decomposition" : guidedManifests[id]?.title || "Free exploration";
+/** @param {string} id @param {any} [definition] */
+const experimentName = (id, definition = null) =>
+  definition?.title || (id === "oxygen" ? "Oxygen from decomposition" : guidedManifests[id]?.title || "Free exploration");
 /** @param {string} id @param {string} mode @param {string|null} experimentId @param {string} at @param {string} [name] @returns {any} */
 export function newLabSession(
   id,
@@ -104,6 +106,46 @@ export function newLabSession(
   validateLabSession(session);
   return session;
 }
+/** @param {string} id @param {any} manifest @param {string} at @param {string} [name] */
+export function newAuthoredExperimentSession(id, manifest, at, name = manifest?.title || "Authored experiment") {
+  const validation = validateExperimentManifest(manifest);
+  if (!validation.valid) throw new Error(validation.errors.join(" "));
+  if (Object.hasOwn(experimentManifests, manifest.id)) throw new Error("Authored experiment ID collides with the built-in library.");
+  if (!id || !Number.isFinite(Date.parse(at))) throw new Error("Invalid session metadata");
+  const session = {
+    version: 2, id, name, mode: "guided", createdAt: at, updatedAt: at,
+    core: { workspace: createWorkspaceFromManifest(manifest), experiment: { id: manifest.id, step: 0, definition: structuredClone(manifest), result: null } },
+    past: [], future: [], notebook: emptyNotebook(),
+  };
+  validateLabSession(session);
+  return session;
+}
+/** @param {any} experiment @returns {any} */
+function guidedDefinition(experiment) {
+  return experiment.definition || guidedManifests[experiment.id] || null;
+}
+/** @param {any} experiment @returns {any} */
+function stepList(experiment) {
+  const definition = guidedDefinition(experiment);
+  return experiment.definition ? definition?.instructions : definition?.steps;
+}
+/** @param {any} workspace @param {any} command @returns {{workspace:any,text:string}} */
+function runManifestCommand(workspace, command) {
+  if (command.type === "measure-volume") {
+    const target = workspace.objects[command.id];
+    if (!target || !equipment[target.kind].operations.includes("receive")) throw new Error("A supported vessel is required for volume measurement");
+    const text = `Measured volume: ${target.volumeMl} mL in ${target.id}.`;
+    return { workspace: { ...workspace, events: [...workspace.events, text] }, text };
+  }
+  if (command.type === "measure-gas") {
+    const target = workspace.objects[command.id];
+    if (!target || !equipment[target.kind].operations.includes("measure-gas")) throw new Error("Gas measurement requires a gas collection vessel");
+    const text = `Measured ${Object.entries(target.gases || {}).map(([name, moles]) => `${name}: ${moles} mol, ${(moles * oxygenReaction.molarGasVolume * 1000).toFixed(2)} mL at 0 °C and 1 atm`).join(", ") || "no collected gas"} in ${target.id}.`;
+    return { workspace: { ...workspace, events: [...workspace.events, text] }, text };
+  }
+  const next = executeCommand(workspace, command);
+  return { workspace: next, text: next.events.at(-1) || "" };
+}
 /** @param {any} core */
 function validateCore(core) {
   if (!core || typeof core !== "object")
@@ -151,7 +193,14 @@ function validateCore(core) {
           throw new Error("Oxygen workspace inventory or topology is inconsistent");
       }
     } else {
-      if (!Object.hasOwn(guidedManifests, e.id) || e.step > guidedManifests[e.id].steps.length)
+      const definition = guidedDefinition(e), steps = stepList(e);
+      if (e.definition) {
+        const result = validateExperimentManifest(e.definition);
+        if (!result.valid || e.definition.id !== e.id || Object.hasOwn(experimentManifests, e.id)) throw new Error("Invalid authored experiment snapshot");
+        const apparatus = new Map(e.definition.apparatus.map((/** @type {any} */ item) => [item.id, item.kind]));
+        if (Object.keys(core.workspace.objects).length !== apparatus.size || Object.entries(core.workspace.objects).some(([id, item]) => apparatus.get(id) !== item.kind)) throw new Error("Authored experiment workspace does not match its apparatus definition");
+      }
+      if (!definition || !steps || e.step > steps.length)
         throw new Error("Invalid experiment progress");
       if (e.result !== null && e.result !== undefined &&
         (e.id !== "neutralization" || !Number.isFinite(e.result.pH) || !Number.isFinite(e.result.acidMoles) ||
@@ -246,6 +295,10 @@ export function dispatchLab(s, action, at, entryId) {
           const fresh = newLabSession(next.id, "guided", "oxygen", at, next.name);
           fresh.mode = next.mode;
           next.core = fresh.core;
+        } else if (next.core.experiment?.definition) {
+          const fresh = newAuthoredExperimentSession(next.id, next.core.experiment.definition, at, next.name);
+          fresh.mode = next.mode;
+          next.core = fresh.core;
         } else if (next.mode === "guided" && next.core.experiment) {
           const fresh = newLabSession(
             next.id,
@@ -290,7 +343,7 @@ export function dispatchLab(s, action, at, entryId) {
         if (next.mode !== "guided" || !next.core.experiment)
           throw new Error("Guided policy required");
         const e = next.core.experiment,
-          step = guidedManifests[e.id].steps[e.step];
+          step = stepList(e)?.[e.step];
         if (!step || step.id !== action.stepId)
           throw new Error("Unexpected or completed step");
         let command = step.command;
@@ -298,10 +351,12 @@ export function dispatchLab(s, action, at, entryId) {
           const student = action.command;
           const keyMap = /** @type {Record<string,string[]>} */ ({
             add: ["id", "stock"],
-            transfer: ["from", "to"],
+            transfer: ["from", "to", "via"],
             mix: ["id"],
             react: ["id", "reactionId"],
             measure: ["id", "solute"],
+            "measure-volume": ["id"],
+            "measure-gas": ["id"],
           });
           const keys = keyMap[step.command.type];
           if (
@@ -316,7 +371,8 @@ export function dispatchLab(s, action, at, entryId) {
         const reactionInput = e.id === "neutralization" && command.type === "react"
           ? structuredClone(next.core.workspace.objects[command.id])
           : null;
-        next.core.workspace = executeCommand(next.core.workspace, command);
+        const execution = runManifestCommand(next.core.workspace, command);
+        next.core.workspace = execution.workspace;
         e.step++;
         if (e.id === "neutralization" && command.type === "react") {
           const vessel = next.core.workspace.objects[command.id];
@@ -343,7 +399,7 @@ export function dispatchLab(s, action, at, entryId) {
           next.core.workspace.events.push(measurement);
           text = `${text} ${measurement}`;
         }
-        text = next.core.workspace.events.at(-1);
+        text = execution.text || next.core.workspace.events.at(-1);
       } else {
         if (
           next.mode === "guided" &&
@@ -396,7 +452,7 @@ export function dispatchLab(s, action, at, entryId) {
         id: entryId,
         sessionId: next.id,
         experiment: next.core.experiment
-          ? experimentName(next.core.experiment.id)
+          ? experimentName(next.core.experiment.id, next.core.experiment.definition)
           : "Free exploration",
         at,
         kind,

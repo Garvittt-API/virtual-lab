@@ -1,6 +1,6 @@
 import React, { useState, lazy, Suspense } from "react";
 import { initializeGuidedExperiment } from "./lab/launch";
-import { newLabSession, dispatchLab } from "./lab/session";
+import { newLabSession, newAuthoredExperimentSession, dispatchLab } from "./lab/session";
 import {
   duplicateSession,
   exportSession,
@@ -14,8 +14,15 @@ const FreeLab = lazy(() => import("./FreeLab"));
 const OxygenLab = lazy(() => import("./OxygenLab"));
 const now = () => new Date().toISOString(),
   id = () => crypto.randomUUID();
-function initial(mode, experimentId, legacyKey) {
+function initial(mode, experimentId, legacyKey, experimentManifest) {
   try {
+    if (experimentManifest) {
+      const store = loadStore(localStorage, now());
+      const session = newAuthoredExperimentSession(id(), experimentManifest, now());
+      const next = { ...store, activeId: session.id, sessions: [...store.sessions, session] };
+      saveStore(localStorage, next);
+      return { store: next, error: "" };
+    }
     if (experimentId)
       return {
         store: initializeGuidedExperiment(
@@ -68,9 +75,10 @@ export default function SessionWorkbench({
   initialMode,
   experimentId,
   legacyKey,
+  initialManifest,
   onReturn,
 }) {
-  const [data, setData] = useState(() => initial(initialMode, experimentId, legacyKey)),
+  const [data, setData] = useState(() => initial(initialMode, experimentId, legacyKey, initialManifest)),
     [edit, setEdit] = useState(""),
     [draft, setDraft] = useState("");
   const store = data.store,
@@ -161,7 +169,7 @@ export default function SessionWorkbench({
       <div className="simple-page">
         <h1>Session recovery required</h1>
         <p role="alert">{data.error}</p>
-          <button onClick={() => setData(initial(initialMode, experimentId, legacyKey))}>
+          <button onClick={() => setData(initial(initialMode, experimentId, legacyKey, initialManifest))}>
           Retry
         </button>
         {onReturn && <button onClick={onReturn}>Return to Discover</button>}

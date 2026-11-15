@@ -1,24 +1,8 @@
-import { guidedManifests, validateGuidedManifest } from "./guided.js";
-import { newLabSession, dispatchLab } from "./session.js";
+import { guidedManifests, experimentManifests, validateGuidedManifest } from "./guided.js";
+import { newLabSession, newAuthoredExperimentSession, dispatchLab } from "./session.js";
 import { loadStore, saveStore } from "./session-store.js";
-export const EXPERIMENTS = Object.freeze({
-  neutralization: {
-    id: "neutralization",
-    title: "Acid-base neutralization",
-    kind: "guided",
-  },
-  precipitation: {
-    id: "precipitation",
-    title: "Silver chloride precipitation",
-    kind: "guided",
-  },
-  dilution: {
-    id: "dilution",
-    title: "Stock solution dilution",
-    kind: "guided",
-  },
-  oxygen: { id: "oxygen", title: "Oxygen from decomposition", kind: "guided" },
-});
+import { validateExperimentManifest, getPublishedExperiment } from "./experiment-authoring.js";
+export const EXPERIMENTS = Object.freeze(Object.fromEntries(Object.values(experimentManifests).map((item) => [item.id, { id: item.id, title: item.title, kind: "guided" }])));
 /** @param {string} hash */
 export function parseExperimentRoute(hash) {
   if (typeof hash !== "string" || !hash.startsWith("#/experiments/"))
@@ -27,7 +11,7 @@ export function parseExperimentRoute(hash) {
   return {
     id,
     experiment: Object.hasOwn(EXPERIMENTS, id)
-      ? EXPERIMENTS[id]
+      ? { ...EXPERIMENTS[id], builtIn: true }
       : null,
   };
 }
@@ -92,4 +76,20 @@ export function initializeGuidedExperiment(storage, experimentId, at, makeId) {
   }
   saveStore(storage, store);
   return store;
+}
+
+/** Launch an imported or authored manifest through the same persisted scientific session. @param {Storage|any} storage @param {any} manifest @param {string} at @param {()=>string} makeId */
+export function initializeAuthoredExperiment(storage, manifest, at, makeId) {
+  const validation = validateExperimentManifest(manifest);
+  if (!validation.valid || manifest.status !== "published") throw new Error("Only valid published experiments can be launched from the library.");
+  let store = loadStore(storage, at);
+  const session = newAuthoredExperimentSession(makeId(), manifest, at);
+  store = { ...store, activeId: session.id, sessions: [...store.sessions, session] };
+  saveStore(storage, store);
+  return store;
+}
+
+/** Resolve a direct custom experiment URL only when its publication record is available locally. @param {Storage|any} storage @param {string} id */
+export function resolvePublishedExperiment(storage, id) {
+  return getPublishedExperiment(storage, id);
 }
