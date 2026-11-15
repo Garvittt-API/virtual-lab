@@ -1,4 +1,5 @@
 import React, { useState, lazy, Suspense } from "react";
+import { initializeGuidedExperiment } from "./lab/launch";
 import { newLabSession, dispatchLab } from "./lab/session";
 import { loadStore, saveStore } from "./lab/session-store";
 import { exportNotebook } from "./lab/notebook";
@@ -6,8 +7,18 @@ const GuidedLab = lazy(() => import("./GuidedLab"));
 const FreeLab = lazy(() => import("./FreeLab"));
 const now = () => new Date().toISOString(),
   id = () => crypto.randomUUID();
-function initial(mode) {
+function initial(mode, experimentId) {
   try {
+    if (experimentId)
+      return {
+        store: initializeGuidedExperiment(
+          localStorage,
+          experimentId,
+          now(),
+          id,
+        ),
+        error: "",
+      };
     let store = loadStore(localStorage, now());
     if (!store.sessions.length) {
       const s = newLabSession(
@@ -35,14 +46,19 @@ function initial(mode) {
     }
     return { store, error: "" };
   } catch (e) {
+    console.error("Laboratory session initialization failed:", e);
     return {
       store: null,
       error: `Cannot open laboratory sessions: ${e instanceof Error ? e.message : "storage failure"}. Original data has not been removed. Correct or export the stored data before retrying.`,
     };
   }
 }
-export default function SessionWorkbench({ initialMode }) {
-  const [data, setData] = useState(() => initial(initialMode)),
+export default function SessionWorkbench({
+  initialMode,
+  experimentId,
+  onReturn,
+}) {
+  const [data, setData] = useState(() => initial(initialMode, experimentId)),
     [edit, setEdit] = useState(""),
     [draft, setDraft] = useState("");
   const store = data.store,
@@ -107,7 +123,10 @@ export default function SessionWorkbench({ initialMode }) {
       <div className="simple-page">
         <h1>Session recovery required</h1>
         <p role="alert">{data.error}</p>
-        <button onClick={() => setData(initial(initialMode))}>Retry</button>
+        <button onClick={() => setData(initial(initialMode, experimentId))}>
+          Retry
+        </button>
+        {onReturn && <button onClick={onReturn}>Return to Discover</button>}
       </div>
     );
   return (

@@ -1,4 +1,4 @@
-import React, { useState, lazy, Suspense } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowRight,
@@ -43,6 +43,8 @@ const SessionWorkbench = lazy(() => import("./SessionWorkbench"));
 const SharedNotebook = lazy(() => import("./SharedNotebook"));
 const ReactionExercises = lazy(() => import("./ReactionExercises"));
 import { neutralization } from "./chemistry";
+import { parseExperimentRoute, experimentHash } from "./lab/launch";
+import ExperimentErrorBoundary from "./ExperimentErrorBoundary";
 import {
   neutralizationExperiment as experiment,
   scoreAssessment,
@@ -546,21 +548,23 @@ function Lab({ data, update, undo, redo, canUndo, canRedo, reset }) {
             </div>
             <span>IDEAL MODEL</span>
           </div>
-          <Suspense
-            fallback={
-              <div className="scene" role="status">
-                Loading 3D workspace…
-              </div>
-            }
-          >
-            <Scene
-              baseMl={data.baseMl}
-              positions={data.positions}
-              selected={selected}
-              onSelect={setSelected}
-              onMove={move}
-            />
-          </Suspense>
+          <ExperimentErrorBoundary scene>
+            <Suspense
+              fallback={
+                <div className="scene" role="status">
+                  Loading 3D workspace…
+                </div>
+              }
+            >
+              <Scene
+                baseMl={data.baseMl}
+                positions={data.positions}
+                selected={selected}
+                onSelect={setSelected}
+                onMove={move}
+              />
+            </Suspense>
+          </ExperimentErrorBoundary>
           <div className="scene-hint">
             <span>✥</span> Drag to move apparatus <i /> Orbit by dragging the
             background
@@ -823,14 +827,43 @@ function Notebook({ data, update }) {
     </div>
   );
 }
-function App() {
-  const [page, setPage] = useState("library"),
+export function App() {
+  const readRoute = () => parseExperimentRoute(window.location.hash);
+  const [route, setRoute] = useState(readRoute),
+    [basePage, setBasePage] = useState("library"),
+    page = route ? "experiment" : basePage,
+    setPage = (next) => {
+      window.history.pushState(
+        null,
+        "",
+        window.location.pathname + window.location.search,
+      );
+      setRoute(null);
+      setBasePage(next);
+    },
+    launch = (id) => {
+      const hash = experimentHash(id);
+      window.history.pushState(null, "", hash);
+      setRoute(parseExperimentRoute(hash));
+    },
     [saved, setSavedState] = useState(
       () => localStorage.getItem("materia-bookmark") === "true",
     ),
     [data, setData] = useState(read),
     [past, setPast] = useState([]),
     [future, setFuture] = useState([]);
+  useEffect(() => {
+    const onNavigation = () => {
+      setRoute(readRoute());
+      setBasePage("library");
+    };
+    window.addEventListener("popstate", onNavigation);
+    window.addEventListener("hashchange", onNavigation);
+    return () => {
+      window.removeEventListener("popstate", onNavigation);
+      window.removeEventListener("hashchange", onNavigation);
+    };
+  }, []);
   function setSaved(v) {
     setSavedState(v);
     localStorage.setItem("materia-bookmark", v);
@@ -868,6 +901,7 @@ function App() {
   }
   const title = {
     library: "Discover",
+    experiment: route?.experiment?.title || "Experiment",
     lab: "Virtual lab",
     oxygen: "Oxygen simulation",
     liquid: "Liquid workspace",
@@ -887,18 +921,54 @@ function App() {
         <div
           className={
             "content " +
-            (["lab", "oxygen", "liquid", "guided", "free"].includes(page)
+            ([
+              "lab",
+              "oxygen",
+              "liquid",
+              "guided",
+              "free",
+              "experiment",
+            ].includes(page)
               ? "lab-content"
               : "")
           }
         >
           {page === "library" ? (
             <Library
-              open={() => setPage("lab")}
-              openOxygen={() => setPage("oxygen")}
+              open={() => launch("neutralization")}
+              openOxygen={() => launch("oxygen")}
               saved={saved}
               setSaved={setSaved}
             />
+          ) : page === "experiment" ? (
+            route.experiment ? (
+              <ExperimentErrorBoundary
+                key={route.id}
+                onReturn={() => setPage("library")}
+              >
+                <Suspense
+                  fallback={<div role="status">Loading experiment…</div>}
+                >
+                  {route.experiment.kind === "guided" ? (
+                    <SessionWorkbench
+                      initialMode="guided"
+                      experimentId={route.id}
+                      onReturn={() => setPage("library")}
+                    />
+                  ) : (
+                    <OxygenLab />
+                  )}
+                </Suspense>
+              </ExperimentErrorBoundary>
+            ) : (
+              <div className="simple-page" role="alert">
+                <h1>Experiment not found</h1>
+                <p>This experiment ID is not available.</p>
+                <button onClick={() => setPage("library")}>
+                  Return to Discover
+                </button>
+              </div>
+            )
           ) : page === "lab" ? (
             <Lab
               data={data}
@@ -983,4 +1053,5 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")).render(<App />);
+if (typeof document !== "undefined")
+  createRoot(document.getElementById("root")).render(<App />);
