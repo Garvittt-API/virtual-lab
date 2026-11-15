@@ -1329,3 +1329,23 @@ main {
 .answer-incorrect {
   color: #a66a43;
 }
+.oxygen-page .tabs {
+  gap: 14px;
+}
+.oxygen-notes {
+  width: 100%;
+  min-height: 100px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #dfeae3;
+  border-radius: 8px;
+}
+.oxygen-option {
+  display: block;
+  font-size: 12px;
+  margin: 12px 0;
+  color: #5d786a;
+}
+.oxygen-option input {
+  accent-color: #2b8965;
+}
