@@ -39,6 +39,7 @@ const Scene = lazy(() => import("./Scene"));
 const OxygenLab = lazy(() => import("./OxygenLab"));
 const LiquidLab = lazy(() => import("./LiquidLab"));
 const GuidedLab = lazy(() => import("./GuidedLab"));
+const FreeLab = lazy(() => import("./FreeLab"));
 const ReactionExercises = lazy(() => import("./ReactionExercises"));
 import { neutralization } from "./chemistry";
 import {
@@ -137,6 +138,12 @@ function Sidebar({ page, setPage }) {
         onClick={() => setPage("guided")}
       >
         <TestTube2 size={18} /> Guided laboratory
+      </button>
+      <button
+        className={"nav-item " + (page === "free" ? "active" : "")}
+        onClick={() => setPage("free")}
+      >
+        <Box size={18} /> Free exploration
       </button>
       <div className="side-divider" />
       <div className="nav-label">YOUR LEARNING</div>
@@ -858,6 +865,7 @@ function App() {
     oxygen: "Oxygen simulation",
     liquid: "Liquid workspace",
     guided: "Guided laboratory",
+    free: "Free exploration",
     reactions: "Reaction exercises",
     notebook: "Lab notebook",
     saved: "Saved experiments",
@@ -871,7 +879,7 @@ function App() {
         <div
           className={
             "content " +
-            (["lab", "oxygen", "liquid", "guided"].includes(page)
+            (["lab", "oxygen", "liquid", "guided", "free"].includes(page)
               ? "lab-content"
               : "")
           }
@@ -908,6 +916,10 @@ function App() {
           ) : page === "guided" ? (
             <Suspense fallback={<div>Loading laboratory…</div>}>
               <GuidedLab />
+            </Suspense>
+          ) : page === "free" ? (
+            <Suspense fallback={<div>Loading workspace…</div>}>
+              <FreeLab />
             </Suspense>
           ) : page === "notebook" ? (
             <Notebook data={data} update={update} />

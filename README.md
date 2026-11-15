@@ -41,3 +41,6 @@ Select **Reaction exercises** in the sidebar for fixed-quantity, manifest-driven
 ## Guided laboratory (partial vessel-state integration)
 
 Choose **Guided laboratory** in the sidebar to run fixed-step neutralization, ideal AgCl precipitation or NaCl dilution. Each step modifies the same simulated vessel inventory used by the scene; observations and up to 50 undo/redo snapshots are stored locally. This is not yet a unified state for the older activities. No pH, real fluid flow, thermal behavior or solubility equilibrium is modeled. Review [state and assumptions](docs/implementation/UNIFIED_SIMULATION.md), and manually check the interface and scene locally; no visual verification was performed.
+
+### Interactive workbench (partial)
+The Guided laboratory accepts student-entered volumes for its three idealized exercises. Free exploration starts with an empty bench and supports registered glassware, stock solutions, liquid transfer, mixing, two ideal reactions, notes and export. See [interactive laboratory implementation and limitations](docs/implementation/INTERACTIVE_LAB.md). These are digital educational models, not real-world laboratory instructions.

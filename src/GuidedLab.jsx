@@ -5,7 +5,7 @@ import {
   dispatch,
   guidedManifests,
 } from "./lab/guided";
-import { equipment } from "./lab/registry";
+import { equipment, stocks } from "./lab/registry";
 import { concentration } from "./lab/engine";
 const LiquidScene = lazy(() => import("./LiquidScene"));
 function read() {
@@ -16,6 +16,109 @@ function read() {
   } catch {
     return createSession("neutralization");
   }
+}
+function GuidedStepControl({ step, workspace, run }) {
+  const [command, setCommand] = useState(() => ({
+    ...step.command,
+    volume: step.command.volumeMl || 10,
+    unit: "mL",
+  }));
+  const update = (key, value) =>
+    setCommand((current) => ({ ...current, [key]: value }));
+  const vessels = Object.values(workspace.objects).filter((v) =>
+    equipment[v.kind].operations.includes("receive"),
+  );
+  const vesselSelect = (key, label) => (
+    <label>
+      {label}
+      <select
+        value={command[key] || ""}
+        onChange={(e) => update(key, e.target.value)}
+      >
+        {vessels.map((v) => (
+          <option key={v.id} value={v.id}>
+            {equipment[v.kind].name} · {v.id}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  return (
+    <div className="liquid-controls">
+      <p className="model-note">
+        Choose the requested operation and quantity. Volumes in the procedure
+        are suggestions, not required values.
+      </p>
+      {step.command.type === "add" && (
+        <>
+          {vesselSelect("id", "Destination vessel")}
+          <label>
+            Stock solution
+            <select
+              value={command.stock}
+              onChange={(e) => update("stock", e.target.value)}
+            >
+              {Object.values(stocks).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
+      {step.command.type === "transfer" && (
+        <>
+          {vesselSelect("from", "Source vessel")}
+          {vesselSelect("to", "Destination vessel")}
+        </>
+      )}
+      {["mix", "react", "measure"].includes(step.command.type) &&
+        vesselSelect("id", "Vessel")}
+      {step.command.type === "react" && (
+        <label>
+          Reaction
+          <select
+            value={command.reactionId}
+            onChange={(e) => update("reactionId", e.target.value)}
+          >
+            <option value="neutralization">Neutralization</option>
+            <option value="precipitation">AgCl precipitation</option>
+          </select>
+        </label>
+      )}
+      {["add", "transfer"].includes(step.command.type) && (
+        <>
+          <label>
+            Volume
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={command.volume}
+              onChange={(e) => update("volume", Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Unit
+            <select
+              value={command.unit}
+              onChange={(e) => update("unit", e.target.value)}
+            >
+              <option>mL</option>
+              <option>L</option>
+            </select>
+          </label>
+        </>
+      )}
+      <button
+        className="add-button"
+        onClick={() => run({ type: "perform", stepId: step.id, command })}
+      >
+        Perform {step.command.type}
+      </button>
+    </div>
+  );
 }
 export default function GuidedLab() {
   const [session, setSession] = useState(read),
@@ -193,12 +296,12 @@ export default function GuidedLab() {
               ))}
             </ol>
             {step ? (
-              <button
-                className="add-button"
-                onClick={() => run({ type: "next", stepId: step.id })}
-              >
-                Perform next step
-              </button>
+              <GuidedStepControl
+                key={step.id}
+                step={step}
+                workspace={workspace}
+                run={run}
+              />
             ) : (
               <p role="status">
                 <b>Procedure complete.</b> Add an observation below.

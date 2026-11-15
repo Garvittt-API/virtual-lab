@@ -123,7 +123,40 @@ export function validateWorkspace(state) {
 export function execute(state, command) {
   validateWorkspace(state);
   const next = structuredClone(state);
-  if (command.type === "add") {
+  if (command.type === "place") {
+    if (
+      typeof command.id !== "string" ||
+      !/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(command.id) ||
+      Object.hasOwn(next.objects, command.id) ||
+      Object.keys(next.objects).length >= 12
+    )
+      throw new Error("Invalid, duplicate, or excessive equipment ID");
+    const v = createObject(command.id, command.kind, command.position);
+    if (
+      Math.abs(v.position[0]) > 4 ||
+      Math.abs(v.position[1]) > 2.5 ||
+      Object.values(next.objects).some(
+        (o) =>
+          Math.hypot(
+            o.position[0] - v.position[0],
+            o.position[1] - v.position[1],
+          ) < 0.5,
+      )
+    )
+      throw new Error("Position is outside the bench or overlaps equipment");
+    next.objects[v.id] = v;
+    next.events.push(`Placed ${definition(v).name} (${v.id}).`);
+  } else if (command.type === "remove") {
+    const v = object(next, command.id);
+    if (
+      v.volumeMl > 0 ||
+      Object.values(v.solids || {}).some((n) => n > 0) ||
+      next.connections.some((c) => c.a === v.id || c.b === v.id)
+    )
+      throw new Error("Empty and disconnect equipment before removal");
+    delete next.objects[v.id];
+    next.events.push(`Removed ${v.id}.`);
+  } else if (command.type === "add") {
     const v = object(next, command.id),
       def = definition(v),
       stock = Object.hasOwn(stocks, command.stock)

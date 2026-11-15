@@ -1,3 +1,4 @@
+import { convertVolume } from "../simulation/substances.js";
 import { stocks } from "./registry.js";
 import {
   createWorkspace,
@@ -258,19 +259,44 @@ export function dispatch(session, action) {
       const before = structuredClone(next.core),
         c = next.core,
         m = guidedManifests[c.experiment.id];
-      if (action.type === "next") {
+      if (action.type === "next" || action.type === "perform") {
         const step = m.steps[c.experiment.step];
         if (!step || step.id !== action.stepId)
           throw new Error("Unexpected or completed step");
+        let command = step.command;
+        if (action.type === "perform") {
+          const student = action.command;
+          if (!student || student.type !== step.command.type)
+            throw new Error("Choose the required operation");
+          const keyMap = /** @type {Record<string,string[]>} */ ({
+            add: ["id", "stock"],
+            transfer: ["from", "to"],
+            mix: ["id"],
+            react: ["id", "reactionId"],
+            measure: ["id", "solute"],
+          });
+          const keys = keyMap[step.command.type];
+          if (!keys || keys.some((k) => student[k] !== step.command[k]))
+            throw new Error(
+              "Operation does not match the current procedure; check vessel and substance",
+            );
+          command = { ...student };
+          if (["add", "transfer"].includes(command.type))
+            command.volumeMl = convertVolume(
+              student.volume,
+              student.unit,
+              "mL",
+            );
+        }
         if (step.command.type === "measure") {
-          const v = c.workspace.objects[step.command.id];
+          const v = c.workspace.objects[command.id];
           if (!v || v.volumeMl <= 0)
             throw new Error("A nonempty vessel is required");
-          const value = concentration(v, step.command.solute);
+          const value = concentration(v, command.solute);
           c.workspace.events.push(
-            `Measured ${step.command.solute}: ${value} mol/L in ${v.id}.`,
+            `Measured ${command.solute}: ${value} mol/L in ${v.id}.`,
           );
-        } else c.workspace = execute(c.workspace, step.command);
+        } else c.workspace = execute(c.workspace, command);
         c.experiment.step++;
       } else if (
         action.type === "move" ||

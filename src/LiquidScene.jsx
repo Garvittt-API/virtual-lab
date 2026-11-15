@@ -131,11 +131,13 @@ export default function LiquidScene({ state, selected, onSelect, onMove }) {
       new THREE.MeshBasicMaterial({ color: "#319a70", side: THREE.DoubleSide }),
     );
     ring.rotation.x = -Math.PI / 2;
-    ring.position.set(
-      objects[selected].position.x,
-      0.02,
-      objects[selected].position.z,
-    );
+    if (objects[selected])
+      ring.position.set(
+        objects[selected].position.x,
+        0.02,
+        objects[selected].position.z,
+      );
+    else ring.visible = false;
     scene.add(ring);
     for (const c of state.connections) {
       const a = objects[c.a].position,
@@ -180,7 +182,6 @@ export default function LiquidScene({ state, selected, onSelect, onMove }) {
         offset.set(o.position.x - hit.x, 0, o.position.z - hit.z);
       controls.enabled = false;
       renderer.domElement.setPointerCapture(e.pointerId);
-      latest.current.onSelect(o.userData.id);
     }
     function move(e) {
       if (!dragged) return;
@@ -193,6 +194,7 @@ export default function LiquidScene({ state, selected, onSelect, onMove }) {
       }
     }
     function up() {
+      if (dragged) latest.current.onSelect(dragged.userData.id);
       if (dragged && moved)
         latest.current.onMove(dragged.userData.id, [
           dragged.position.x,
