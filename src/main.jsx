@@ -40,6 +40,7 @@ const OxygenLab = lazy(() => import("./OxygenLab"));
 const LiquidLab = lazy(() => import("./LiquidLab"));
 const GuidedLab = lazy(() => import("./GuidedLab"));
 const FreeLab = lazy(() => import("./FreeLab"));
+const SharedNotebook = lazy(() => import("./SharedNotebook"));
 const ReactionExercises = lazy(() => import("./ReactionExercises"));
 import { neutralization } from "./chemistry";
 import {
@@ -144,6 +145,12 @@ function Sidebar({ page, setPage }) {
         onClick={() => setPage("free")}
       >
         <Box size={18} /> Free exploration
+      </button>
+      <button
+        className={"nav-item " + (page === "shared-notebook" ? "active" : "")}
+        onClick={() => setPage("shared-notebook")}
+      >
+        <BookOpen size={18} /> Activity notebook
       </button>
       <div className="side-divider" />
       <div className="nav-label">YOUR LEARNING</div>
@@ -868,6 +875,7 @@ function App() {
     free: "Free exploration",
     reactions: "Reaction exercises",
     notebook: "Lab notebook",
+    "shared-notebook": "Activity notebook",
     saved: "Saved experiments",
     about: "About",
   }[page];
@@ -920,6 +928,10 @@ function App() {
           ) : page === "free" ? (
             <Suspense fallback={<div>Loading workspace…</div>}>
               <FreeLab />
+            </Suspense>
+          ) : page === "shared-notebook" ? (
+            <Suspense fallback={<div>Loading notebook…</div>}>
+              <SharedNotebook />
             </Suspense>
           ) : page === "notebook" ? (
             <Notebook data={data} update={update} />

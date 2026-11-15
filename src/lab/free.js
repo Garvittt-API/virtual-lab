@@ -1,5 +1,4 @@
-import { execute, validateWorkspace } from "./engine.js";
-import { convertVolume } from "../simulation/substances.js";
+import { executeCommand, validateWorkspace } from "./engine.js";
 /** @param {string} createdAt */
 export function createFreeSession(createdAt) {
   if (typeof createdAt !== "string" || !Number.isFinite(Date.parse(createdAt)))
@@ -78,16 +77,14 @@ export function dispatchFree(s, action) {
             "add",
             "transfer",
             "mix",
+            "measure",
             "react",
             "connect",
             "disconnect",
           ].includes(action.type)
         )
           throw new Error("Unsupported operation");
-        const command = { ...action };
-        if (["add", "transfer"].includes(command.type))
-          command.volumeMl = convertVolume(command.volume, command.unit, "mL");
-        next.workspace = execute(next.workspace, command);
+        next.workspace = executeCommand(next.workspace, action);
       }
       next.past.push(before);
       if (next.past.length > 50) next.past.shift();

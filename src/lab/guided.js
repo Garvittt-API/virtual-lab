@@ -1,10 +1,8 @@
-import { convertVolume } from "../simulation/substances.js";
 import { stocks } from "./registry.js";
 import {
   createWorkspace,
-  execute,
+  executeCommand,
   validateWorkspace,
-  concentration,
 } from "./engine.js";
 // Steps are intentionally fixed measured commands, not arbitrary executable code.
 /** @typedef {{id:string,instruction:string, command:any}} GuidedStep */
@@ -281,31 +279,17 @@ export function dispatch(session, action) {
               "Operation does not match the current procedure; check vessel and substance",
             );
           command = { ...student };
-          if (["add", "transfer"].includes(command.type))
-            command.volumeMl = convertVolume(
-              student.volume,
-              student.unit,
-              "mL",
-            );
         }
-        if (step.command.type === "measure") {
-          const v = c.workspace.objects[command.id];
-          if (!v || v.volumeMl <= 0)
-            throw new Error("A nonempty vessel is required");
-          const value = concentration(v, command.solute);
-          c.workspace.events.push(
-            `Measured ${command.solute}: ${value} mol/L in ${v.id}.`,
-          );
-        } else c.workspace = execute(c.workspace, command);
+        c.workspace = executeCommand(c.workspace, command);
         c.experiment.step++;
       } else if (
         action.type === "move" ||
         action.type === "connect" ||
         action.type === "disconnect"
       )
-        c.workspace = execute(c.workspace, action);
+        c.workspace = executeCommand(c.workspace, action);
       else if (action.type === "observe") {
-        c.workspace = execute(c.workspace, {
+        c.workspace = executeCommand(c.workspace, {
           type: "observe",
           note: action.note,
         });

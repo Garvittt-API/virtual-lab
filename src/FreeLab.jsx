@@ -5,6 +5,7 @@ import {
   dispatchFree,
   exportFreeNotebook,
 } from "./lab/free";
+import { appendNotebook } from "./lab/notebook";
 import { equipment, stocks } from "./lab/registry";
 import { concentration } from "./lab/engine";
 const LiquidScene = lazy(() => import("./LiquidScene"));
@@ -30,7 +31,8 @@ export default function FreeLab() {
     [amount, setAmount] = useState("10"),
     [unit, setUnit] = useState("mL"),
     [reaction, setReaction] = useState("neutralization"),
-    [note, setNote] = useState("");
+    [note, setNote] = useState(""),
+    [notebookSession] = useState(() => crypto.randomUUID());
   const workspace = session.workspace,
     items = Object.values(workspace.objects),
     item = workspace.objects[selected] || items[0],
@@ -47,6 +49,28 @@ export default function FreeLab() {
     }
     put(r.state);
     setError("");
+    try {
+      const text =
+        action.type === "note"
+          ? action.text.trim()
+          : ["undo", "redo", "reset"].includes(action.type)
+            ? `Simulation ${action.type}`
+            : r.state.workspace.events.at(-1);
+      if (text)
+        appendNotebook(localStorage, {
+          id: crypto.randomUUID(),
+          sessionId: notebookSession,
+          experiment: "Free exploration",
+          at: new Date().toISOString(),
+          kind: action.type === "note" ? "observation" : "event",
+          text,
+        });
+    } catch {
+      setError(
+        "Action saved, but shared notebook could not be written. Existing notebook data was preserved.",
+      );
+    }
+
     return true;
   }
   function move(objectId, position) {
@@ -291,6 +315,14 @@ export default function FreeLab() {
                       M
                     </span>
                     <b>{n.toPrecision(4)} mol</b>
+                    <button
+                      disabled={item.volumeMl <= 0}
+                      onClick={() =>
+                        run({ type: "measure", id: active, solute: name })
+                      }
+                    >
+                      Record concentration
+                    </button>
                   </div>
                 ))}
                 {Object.entries(item.solids || {}).map(([name, n]) => (

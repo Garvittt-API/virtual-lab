@@ -1,5 +1,6 @@
 import { react, reactions } from "../simulation/reactions.js";
 import { equipment, stocks } from "./registry.js";
+import { substances, convertVolume } from "../simulation/substances.js";
 /** @typedef {{id:string, kind:string, position:number[], volumeMl:number, solutes:Record<string,number>, solids?:Record<string,number>, mixed?:boolean}} Vessel */
 /** @typedef {{objects:Record<string,Vessel>, connections:Array<{a:string,ap:string,b:string,bp:string}>, events:string[]}} LabState */
 /** @param {string} id @param {string} kind @param {number[]} position @returns {Vessel} */
@@ -235,6 +236,17 @@ export function execute(state, command) {
     next.events.push(
       `Reaction ${reaction.id} in ${v.id}: extent ${result.extent} mol; limiting ${result.limiting.join(", ")}; consumed ${JSON.stringify(consumed)}; produced ${JSON.stringify(result.produced)}.`,
     );
+  } else if (command.type === "measure") {
+    const v = object(next, command.id);
+    if (
+      !definition(v).operations.includes("receive") ||
+      v.volumeMl <= 0 ||
+      typeof command.solute !== "string" ||
+      !Object.hasOwn(substances, command.solute)
+    )
+      throw new Error("A nonempty vessel and known solute are required");
+    const value = concentration(v, command.solute);
+    next.events.push(`Measured ${command.solute}: ${value} mol/L in ${v.id}.`);
   } else if (command.type === "observe") {
     if (
       typeof command.note !== "string" ||
@@ -283,4 +295,17 @@ export function concentration(item, solute) {
   return item.volumeMl
     ? (item.solutes[solute] || 0) / (item.volumeMl / 1000)
     : 0;
+}
+
+/** Normalizes user-entered units then invokes the authoritative vessel engine. @param {LabState} state @param {any} command @returns {LabState} */
+export function executeCommand(state, command) {
+  if (!command || typeof command.type !== "string")
+    throw new Error("Invalid command");
+  const normalized = { ...command };
+  if (
+    ["add", "transfer"].includes(command.type) &&
+    command.volume !== undefined
+  )
+    normalized.volumeMl = convertVolume(command.volume, command.unit, "mL");
+  return execute(state, normalized);
 }

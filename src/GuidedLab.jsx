@@ -5,6 +5,7 @@ import {
   dispatch,
   guidedManifests,
 } from "./lab/guided";
+import { appendNotebook } from "./lab/notebook";
 import { equipment, stocks } from "./lab/registry";
 import { concentration } from "./lab/engine";
 const LiquidScene = lazy(() => import("./LiquidScene"));
@@ -124,7 +125,8 @@ export default function GuidedLab() {
   const [session, setSession] = useState(read),
     [selected, setSelected] = useState("a"),
     [error, setError] = useState(""),
-    [note, setNote] = useState("");
+    [note, setNote] = useState(""),
+    [notebookSession, setNotebookSession] = useState(() => crypto.randomUUID());
   const { workspace, experiment } = session.core,
     manifest = guidedManifests[experiment.id],
     step = manifest.steps[experiment.step],
@@ -141,6 +143,29 @@ export default function GuidedLab() {
     }
     setError("");
     put(result.state);
+    try {
+      const events = result.state.core.workspace.events;
+      const text =
+        action.type === "observe"
+          ? action.note.trim()
+          : ["undo", "redo", "reset"].includes(action.type)
+            ? `Simulation ${action.type}`
+            : events.at(-1);
+      if (text)
+        appendNotebook(localStorage, {
+          id: crypto.randomUUID(),
+          sessionId: notebookSession,
+          experiment: manifest.title,
+          at: new Date().toISOString(),
+          kind: action.type === "observe" ? "observation" : "event",
+          text,
+        });
+    } catch {
+      setError(
+        "Action saved, but shared notebook could not be written. Existing notebook data was preserved.",
+      );
+    }
+    return true;
   }
   function change(e) {
     if (
@@ -150,6 +175,7 @@ export default function GuidedLab() {
     ) {
       put(createSession(e.target.value));
       setSelected("a");
+      setNotebookSession(crypto.randomUUID());
       setError("");
     }
   }
@@ -342,12 +368,7 @@ export default function GuidedLab() {
             <button
               className="outline"
               onClick={() => {
-                const result = dispatch(session, { type: "observe", note });
-                if (result.ok) {
-                  put(result.state);
-                  setNote("");
-                  setError("");
-                } else setError(result.error);
+                if (run({ type: "observe", note })) setNote("");
               }}
             >
               Save observation
@@ -365,8 +386,8 @@ export default function GuidedLab() {
             </div>
             <p className="model-note">
               The white AgCl marker and liquid levels are qualitative. Measured
-              steps use fixed values; no pouring, equilibrium or fluid dynamics
-              are simulated. No independent scientific review or visual
+              steps accept student volumes; no pouring, equilibrium or fluid
+              dynamics are simulated. No independent scientific review or visual
               verification.
             </p>
           </div>
