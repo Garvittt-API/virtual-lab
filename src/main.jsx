@@ -38,6 +38,7 @@ import {
 const Scene = lazy(() => import("./Scene"));
 const OxygenLab = lazy(() => import("./OxygenLab"));
 const LiquidLab = lazy(() => import("./LiquidLab"));
+const ReactionExercises = lazy(() => import("./ReactionExercises"));
 import { neutralization } from "./chemistry";
 import {
   neutralizationExperiment as experiment,
@@ -123,6 +124,12 @@ function Sidebar({ page, setPage }) {
         onClick={() => setPage("liquid")}
       >
         <Beaker size={18} /> Liquid workspace
+      </button>
+      <button
+        className={"nav-item " + (page === "reactions" ? "active" : "")}
+        onClick={() => setPage("reactions")}
+      >
+        <FlaskConical size={18} /> Reaction exercises
       </button>
       <div className="side-divider" />
       <div className="nav-label">YOUR LEARNING</div>
@@ -843,6 +850,7 @@ function App() {
     lab: "Virtual lab",
     oxygen: "Oxygen simulation",
     liquid: "Liquid workspace",
+    reactions: "Reaction exercises",
     notebook: "Lab notebook",
     saved: "Saved experiments",
     about: "About",
@@ -882,6 +890,10 @@ function App() {
           ) : page === "liquid" ? (
             <Suspense fallback={<div>Loading workspace…</div>}>
               <LiquidLab />
+            </Suspense>
+          ) : page === "reactions" ? (
+            <Suspense fallback={<div>Loading exercises…</div>}>
+              <ReactionExercises />
             </Suspense>
           ) : page === "notebook" ? (
             <Notebook data={data} update={update} />

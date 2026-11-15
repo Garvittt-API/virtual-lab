@@ -33,3 +33,7 @@ The assumed equation and 3:2 molar ratio are described in [Chemistry LibreTexts,
 ## Liquid workspace
 
 Select **Liquid workspace** in the sidebar to explore a small reusable liquid-state foundation: add water or 0.1 M NaCl, transfer a measured volume between two vessels, inspect concentration, connect a funnel logically, and undo/redo. Data is stored locally. It assumes ideal additive volumes and instantaneous mixing, and it does not simulate reactions or real fluid flow. The scene has not been visually verified; please manually inspect it. See [engine architecture](docs/implementation/LAB_ENGINE.md) and the progress tracker for limitations.
+
+## Reaction calculation exercises
+
+Select **Reaction exercises** in the sidebar for fixed-quantity, manifest-driven neutralization, precipitation, dilution and oxygen calculations. These are calculation-only exercises; they do not control the 3D scenes, and their notes are in memory only. The existing oxygen and neutralization screens use shared stoichiometry but are not yet migrated to the new runner. See [reaction engine assumptions](docs/implementation/REACTION_ENGINE.md). Manually verify all screens locally; no browser or visual verification was performed for this increment.

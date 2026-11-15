@@ -1,3 +1,4 @@
+import { react, reactions } from "./simulation/reactions.js";
 /** A digital, idealized stoichiometric model; it is not a heating-rate prediction. */
 export const oxygenReaction = Object.freeze({
   equation: "2 KClO₃(s) → 2 KCl(s) + 3 O₂(g)",
@@ -24,13 +25,18 @@ export function oxygenYield(massG, fraction) {
     fraction > 1
   )
     throw new RangeError("Invalid amount or conversion fraction");
-  const reacted =
-    (massG * fraction) / oxygenReaction.potassiumChlorateMolarMass;
+  // Retain the original 122.55 g/mol rounding and conversion assumption.
+  const result = react(
+    reactions.oxygen,
+    { KClO3: massG / oxygenReaction.potassiumChlorateMolarMass },
+    fraction,
+  );
+  const reacted = result.extent * 2;
   return {
     reactantMoles: reacted,
-    oxygenMoles: reacted * 1.5,
-    potassiumChlorideMoles: reacted,
-    oxygenMl: reacted * 1.5 * oxygenReaction.molarGasVolume * 1000,
+    oxygenMoles: result.produced.O2,
+    potassiumChlorideMoles: result.produced.KCl,
+    oxygenMl: result.produced.O2 * oxygenReaction.molarGasVolume * 1000,
   };
 }
 /** Immutable state transitions shared by controls and tests. No kinetic or thermal model is implied.
