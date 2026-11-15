@@ -1,0 +1,77 @@
+// Illustrative dimensions in metres; capacities are nominal educational values.
+// Model keys identify procedural geometries, not externally sourced assets.
+/** @type {Readonly<Record<string, {id:string, name:string, category:string, model:string, dimensionsM:number[], capacityMl:number, material:string, operations:string[], ports:Record<string,{kind:string,accepts:string[]}>}>>} */
+export const equipment = Object.freeze({
+  beaker: {
+    id: "beaker",
+    name: "Beaker",
+    category: "glassware",
+    model: "beaker",
+    dimensionsM: [0.07, 0.1, 0.07],
+    capacityMl: 250,
+    material: "glass",
+    operations: ["transfer", "receive"],
+    ports: { mouth: { kind: "open-vessel", accepts: ["funnel-stem"] } },
+  },
+  flask: {
+    id: "flask",
+    name: "Conical flask",
+    category: "glassware",
+    model: "flask",
+    dimensionsM: [0.08, 0.14, 0.08],
+    capacityMl: 250,
+    material: "glass",
+    operations: ["transfer", "receive"],
+    ports: { mouth: { kind: "open-vessel", accepts: ["funnel-stem"] } },
+  },
+  cylinder: {
+    id: "cylinder",
+    name: "Measuring cylinder",
+    category: "glassware",
+    model: "cylinder",
+    dimensionsM: [0.04, 0.2, 0.04],
+    capacityMl: 100,
+    material: "glass",
+    operations: ["transfer", "receive"],
+    ports: { mouth: { kind: "open-vessel", accepts: ["funnel-stem"] } },
+  },
+  funnel: {
+    id: "funnel",
+    name: "Funnel",
+    category: "glassware",
+    model: "funnel",
+    dimensionsM: [0.08, 0.1, 0.08],
+    capacityMl: 0,
+    material: "glass",
+    operations: ["connect"],
+    ports: { stem: { kind: "funnel-stem", accepts: ["open-vessel"] } },
+  },
+});
+// Only these solution stocks are supported; amounts are mol of solute per litre of stock.
+/** @type {Readonly<Record<string, {id:string, name:string, formula:string, state:string, solute:string|null, molarity:number, color:string, hazard:string, limitations:string}>>} */
+export const stocks = Object.freeze({
+  water: {
+    id: "water",
+    name: "Water",
+    formula: "H₂O",
+    state: "liquid",
+    solute: null,
+    molarity: 0,
+    color: "#9ed8dc",
+    hazard:
+      "No classification assigned; laboratory water is not drinking water.",
+    limitations: "Solvent volume is tracked; water moles are not calculated.",
+  },
+  salt: {
+    id: "salt",
+    name: "Sodium chloride solution (0.1 M)",
+    formula: "NaCl(aq)",
+    state: "aqueous",
+    solute: "NaCl",
+    molarity: 0.1,
+    color: "#9ed8dc",
+    hazard: "Avoid ingestion and eye contact.",
+    limitations:
+      "Ideal nonreactive solution; no activity corrections or precipitation.",
+  },
+});

@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 const Scene = lazy(() => import("./Scene"));
 const OxygenLab = lazy(() => import("./OxygenLab"));
+const LiquidLab = lazy(() => import("./LiquidLab"));
 import { neutralization } from "./chemistry";
 import {
   neutralizationExperiment as experiment,
@@ -116,6 +117,12 @@ function Sidebar({ page, setPage }) {
         onClick={() => setPage("notebook")}
       >
         <BookOpen size={18} /> Lab notebook
+      </button>
+      <button
+        className={"nav-item " + (page === "liquid" ? "active" : "")}
+        onClick={() => setPage("liquid")}
+      >
+        <Beaker size={18} /> Liquid workspace
       </button>
       <div className="side-divider" />
       <div className="nav-label">YOUR LEARNING</div>
@@ -835,6 +842,7 @@ function App() {
     library: "Discover",
     lab: "Virtual lab",
     oxygen: "Oxygen simulation",
+    liquid: "Liquid workspace",
     notebook: "Lab notebook",
     saved: "Saved experiments",
     about: "About",
@@ -846,7 +854,8 @@ function App() {
         <Topbar title={title} setPage={setPage} />
         <div
           className={
-            "content " + (["lab", "oxygen"].includes(page) ? "lab-content" : "")
+            "content " +
+            (["lab", "oxygen", "liquid"].includes(page) ? "lab-content" : "")
           }
         >
           {page === "library" ? (
@@ -869,6 +878,10 @@ function App() {
           ) : page === "oxygen" ? (
             <Suspense fallback={<div>Loading experiment…</div>}>
               <OxygenLab />
+            </Suspense>
+          ) : page === "liquid" ? (
+            <Suspense fallback={<div>Loading workspace…</div>}>
+              <LiquidLab />
             </Suspense>
           ) : page === "notebook" ? (
             <Notebook data={data} update={update} />

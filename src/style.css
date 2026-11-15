@@ -1349,3 +1349,29 @@ main {
 .oxygen-option input {
   accent-color: #2b8965;
 }
+.liquid-controls label {
+  display: block;
+  margin-top: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #648073;
+}
+.liquid-controls input,
+.liquid-controls select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #dfeae3;
+  border-radius: 6px;
+  padding: 8px;
+  background: white;
+  color: #416457;
+  font-size: 11px;
+}
+.liquid-controls .outline {
+  margin: 3px;
+  font-size: 10px;
+}
+.liquid-controls .safety {
+  margin-top: 18px;
+}

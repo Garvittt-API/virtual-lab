@@ -8,8 +8,8 @@ Requirements: Node.js 22.17+ and npm (the browser-test dependencies require Node
 
 ```sh
 npm ci
-npm run dev
-# open the address printed by Vite
+npm run dev -- --port 5173 --strictPort
+# open http://localhost:5173/
 ```
 
 Run `npm test` for calculation and manifest tests, `npm run lint` for ESLint, `npm run typecheck` for JavaScript type checking of the chemistry and experiment modules, and `npm run build` for a production static build. `npm run test:browser` runs a headless Chromium workflow on Linux; it requires Chromium system libraries including NSS and NSPR. Screenshots are written to the ignored `artifacts/` directory. Serve `dist/` using any static web server (with HTTPS for production). No server, database, authentication, or deployment configuration is provided. Session and bookmark data are stored in the browser's localStorage, not synced or protected across users. Do not store sensitive data there.
@@ -29,3 +29,7 @@ See [implementation progress](docs/implementation/AUTONOMOUS_PROGRESS.md) for th
 The discovery page also offers an idealized decomposition exercise: arrange the three original procedural apparatus models, connect the pre-defined vessels, load a fixed virtual amount of KClO₃, then advance conversion in fixed increments. The simulated collection volume assumes complete capture and an ideal gas at 0 °C and 1 atm. The flame, bubbles and displacement are illustrations, not a thermal, kinetic or fluid simulation. The exercise has its own locally stored notes and text export. Its controls and scene are not yet browser-verified or independently scientifically reviewed.
 
 The assumed equation and 3:2 molar ratio are described in [Chemistry LibreTexts, decomposition reactions](https://chem.libretexts.org/Courses/Modesto_Junior_College/Chemistry_150_-_Bunag/Textbook_for_Chemistry_150/11:_Introduction_to_Chemical_Reactions/11.05:_Some_Types_of_Chemical_Reactions); the 100 g reference calculation used in a unit test is also shown by [Infinity Learn](https://infinitylearn.com/surge/potassium-chlorate-formula/). These references do not constitute independent review of this implementation. This exercise is digital only; potassium chlorate is a strong oxidizer and the scene is not a safe real-world procedure.
+
+## Liquid workspace
+
+Select **Liquid workspace** in the sidebar to explore a small reusable liquid-state foundation: add water or 0.1 M NaCl, transfer a measured volume between two vessels, inspect concentration, connect a funnel logically, and undo/redo. Data is stored locally. It assumes ideal additive volumes and instantaneous mixing, and it does not simulate reactions or real fluid flow. The scene has not been visually verified; please manually inspect it. See [engine architecture](docs/implementation/LAB_ENGINE.md) and the progress tracker for limitations.
